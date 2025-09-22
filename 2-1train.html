@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>電車案内表示 操作デモ（レスポンシブ対応）</title>
+    <style>
+        /* === 変更点(1): htmlとbodyのスタイルをスケーリングの土台として設定 === */
+        html {
+            /* どのような場合でも横スクロールバーが出ないようにする */
+            overflow-x: hidden;
+        }
+
+        body {
+            /* デザインの基準となる幅で固定 */
+            width: 1600px; 
+            /* JavaScriptで拡縮する際の基点を左上に設定 */
+            transform-origin: top left;
+            
+            /* 以下はページ全体の基本スタイル */
+            margin: 0;
+            font-family: 'Hiragino Sans', 'ヒラギノ角ゴ ProN W6', 'メイリオ', Meiryo, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            
+            /* JavaScriptによって transform: scale() が適用されます */
+        }
+
+        /* === 変更点(2): split-containerのスタイルを調整 === */
+        .split-container {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            /* bodyからpaddingを移動し、コンテンツの余白を確保 */
+            padding: 20px;
+            box-sizing: border-box;
+            /* bodyで幅を固定しているため、max-widthやmargin:autoは不要 */
+        }
+
+        /* === 以下、レイアウト以外のスタイルは基本的に変更なし === */
+        .left-panel {
+            flex: 1;
+            min-width: 320px;
+        }
+        .right-panel {
+            flex: 2;
+            min-width: 400px;
+        }
+
+        .control-panel {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            position: sticky;
+            top: 20px;
+        }
+        .control-panel h2 {
+            margin-top: 0;
+            font-size: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        #python-code {
+            width: 100%;
+            height: 80px;
+            font-family: Consolas, 'Courier New', monospace;
+            font-size: 16px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+        #run-button {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            background-color: #007bff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background-color 0.2s;
+        }
+        #run-button:hover {
+            background-color: #0056b3;
+        }
+        .error-message {
+            color: #d9534f;
+            font-weight: bold;
+            font-size: 14px;
+            margin-top: 15px;
+            display: none;
+            padding: 10px;
+            background-color: #f2dede;
+            border: 1px solid #ebccd1;
+            border-radius: 4px;
+        }
+
+        #display-wrapper {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        
+        #display-wrapper svg {
+            width: 100%;
+            height: auto;
+            display: block;
+            aspect-ratio: 4471 / 2505; 
+        }
+    </style>
+</head>
+<body>
+    <!-- HTML構造は元のシンプルな形に戻しました -->
+    <div class="split-container">
+        <div class="left-panel">
+            <div class="control-panel">
+                <h2>操作パネル</h2>
+                <textarea id="python-code"></textarea>
+                <button id="run-button">実行</button>
+                <p id="error-message" class="error-message"></p>
+            </div>
+        </div>
+        <div class="right-panel">
+            <div id="display-wrapper">
+                <!-- SVG表示エリア (内容は変更なし) -->
+                <svg viewBox="0 0 4471 2505" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" overflow="hidden">
+                    <g transform="translate(23 26)">
+                        <!-- 背景・枠線 -->
+                        <rect x="-0.499836" y="0.499836" width="4406" height="2475" stroke="#FFFFFF" stroke-width="6.875" stroke-miterlimit="8" fill="none"/>
+                        <rect x="0" y="768" width="4406" height="1210" fill="white"/>
+                        
+                        <!-- === 路線図の各駅 === -->
+
+                        <!-- 新丸子 -->
+                        
+                        <path d="M0 0 7.0139 0 95.0002 72.5 7.0139 145 0 145 87.9863 72.5Z" stroke="#FFFFFF" stroke-width="20.625" stroke-miterlimit="8" fill="#156082" transform="matrix(-1 0 0 1 603.5 1641.5)"/>
+                        <text class="station-name" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="165" writing-mode="tb-rl" transform="matrix(1 0 0 1 494.698 1010)" x="56.8799" y="19.8193">新丸子</text>
+                        <text class="line-code" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 410.797 1599)">TY</text>
+                        <text font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 533.974 1599)">-</text>
+                        <text class="station-num" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 573.505 1599)">10</text>
+                        
+                        
+                        <!-- 多摩川 -->
+                        <path d="M833.5 1861.5C833.5 1854.32 839.321 1848.5 846.5 1848.5L898.5 1848.5C905.68 1848.5 911.5 1854.32 911.5 1861.5L911.5 1913.5C911.5 1920.68 905.68 1926.5 898.5 1926.5L846.5 1926.5C839.321 1926.5 833.5 1920.68 833.5 1913.5Z" stroke="#A02B93" stroke-width="6.875" stroke-miterlimit="8" fill="#A02B93"/>
+                        <text class="station-name" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="165" writing-mode="tb-rl" transform="matrix(1 0 0 1 984.795 1022)" x="56.8799" y="19.8193">多摩川</text>
+                        <text class="line-code" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 904.275 1599)">TY</text>
+                        <text font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 1027.45 1599)">-</text>
+                        <text class="station-num" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 1066.98 1599)">09</text>
+                        <text font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="55" transform="matrix(1 0 0 1 939.369 1908)">東急多摩川線</text>
+                    
+                        <!-- 田園調布 -->
+                        <path d="M1305.5 1865.33C1305.5 1858.25 1311.25 1852.5 1318.33 1852.5L1369.67 1852.5C1376.75 1852.5 1382.5 1858.25 1382.5 1865.33L1382.5 1917.67C1382.5 1924.75 1376.75 1930.5 1369.67 1930.5L1318.33 1930.5C1311.25 1930.5 1305.5 1924.75 1305.5 1917.67Z" stroke="#00B0F0" stroke-width="6.875" stroke-miterlimit="8" fill="#00B0F0"/>
+                        <text class="station-name" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="165" writing-mode="tb-rl" transform="matrix(1 0 0 1 1447.3 839)" x="56.8799" y="19.8193">田園調布</text>
+                        <text class="line-code" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 1371.27 1599)">TY</text>
+                        <text font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 1494.45 1599)">-</text>
+                        <text class="station-num" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 1533.98 1599)">08</text>
+                        <text font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="64" transform="matrix(1 0 0 1 1410.14 1919)">目黒線</text>
+                        
+                        
+                        <!-- 自由が丘 -->
+                        <path d="M1776.5 1864.5C1776.5 1857.32 1782.32 1851.5 1789.5 1851.5L1841.5 1851.5C1848.68 1851.5 1854.5 1857.32 1854.5 1864.5L1854.5 1916.5C1854.5 1923.68 1848.68 1929.5 1841.5 1929.5L1789.5 1929.5C1782.32 1929.5 1776.5 1923.68 1776.5 1916.5Z" stroke="#E97132" stroke-width="6.875" stroke-miterlimit="8" fill="#E97132"/>
+                        <text class="station-name" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="165" writing-mode="tb-rl" transform="matrix(1 0 0 1 1924.68 839)" x="56.8799" y="19.8193">自由が丘</text>
+                        <text class="line-code" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 1853.95 1597)">TY</text>
+                        <text font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 1977.13 1597)">-</text>
+                        <text class="station-num" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 2016.66 1597)">07</text>
+                        <text font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="64" transform="matrix(1 0 0 1 1881.39 1916)">大井町線</text>
+                        
+
+                        <!-- 都立大学 -->
+                        <path d="M0 0 7.01386 0 94.9999 72 7.01386 144 0 144 87.9861 72Z" stroke="#FFFFFF" stroke-width="20.625" stroke-miterlimit="8" fill="#156082" transform="matrix(-1 0 0 1 2496.5 1640.5)"/>
+                        <text class="station-name" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="165" writing-mode="tb-rl" transform="matrix(1 0 0 1 2396.77 831)" x="56.8799" y="19.8193">都立大学</text>
+                        <text class="line-code" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 2315.65 1599)">TY</text>
+                        <text font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 2438.83 1599)">-</text>
+                        <text class="station-num" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 2478.36 1599)">06</text>
+                        
+                        
+                        <!-- 学芸大学 -->
+                        <path id="path-gakugeidaigaku" d="M0 0 3476.58 0 3567 92.5 3476.58 185 0 185 90.4155 92.5Z" stroke="#FF0000" stroke-width="20.625" stroke-miterlimit="8" fill="#FF0000" transform="matrix(-1 0 0 1 3612.5 1621.5)"/>
+                        <text class="station-name" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="165" writing-mode="tb-rl" transform="matrix(1 0 0 1 2868.86 822)" x="56.8799" y="19.8193">学芸大学</text>
+                        <text class="line-code" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 2788.28 1596)">TY</text>
+                        <text font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 2911.46 1596)">-</text>
+                        <text class="station-num" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 2950.99 1596)">05</text>
+                        <rect x="2820.5" y="1632.5" width="220" height="160" stroke="#FFFFFF" stroke-width="6.875" stroke-miterlimit="8" fill="#FFFFFF"/>
+                        <rect x="927.5" y="1632.5" width="219" height="161" stroke="#FFFFFF" stroke-width="6.875" stroke-miterlimit="8" fill="#FFFFFF"/>
+                        <rect x="1399.5" y="1634.5" width="220" height="161" stroke="#FFFFFF" stroke-width="6.875" stroke-miterlimit="8" fill="#FFFFFF"/>
+                        <rect x="1877.5" y="1633.5" width="220" height="161" stroke="#FFFFFF" stroke-width="6.875" stroke-miterlimit="8" fill="#FFFFFF"/>
+                        <rect x="2350.5" y="1632.5" width="220" height="160" stroke="#FFFFFF" stroke-width="6.875" stroke-miterlimit="8" fill="#FFFFFF"/>
+                        <rect x="430.5" y="1632.5" width="220" height="160" stroke="#FFFFFF" stroke-width="6.875" stroke-miterlimit="8" fill="#FFFFFF"/>
+
+                        <!-- 祐天寺 -->
+                        <!--<path d="M0 0 7.01386 0 94.9999 72 7.01386 144 0 144 87.986 72Z" stroke="#FFFFFF" stroke-width="20.625" stroke-miterlimit="8" fill="#156082" transform="matrix(-1 0 0 1 3433.5 1644.5)"/>-->
+                        <text class="station-name" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="165" writing-mode="tb-rl" transform="matrix(1 0 0 1 3346 1010)" x="56.8799" y="19.8193">祐天寺</text>
+                        <text class="line-code" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 3267.65 1596)">TY</text>
+                        <text font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 3390.82 1596)">-</text>
+                        <text class="station-num" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 3430.36 1596)">04</text>
+                        <rect x="3300.5" y="1632.5" width="220" height="160" stroke="#FFFFFF" stroke-width="6.875" stroke-miterlimit="8" fill="#FFFFFF"/>
+
+                        <!-- 中目黒 -->
+                        
+                        <path d="M3681 1883.5C3681 1865.55 3695.55 1851 3713.5 1851 3731.45 1851 3746 1865.55 3746 1883.5 3746 1901.45 3731.45 1916 3713.5 1916 3695.55 1916 3681 1901.45 3681 1883.5Z" stroke="#A6A6A6" stroke-width="13.75" stroke-miterlimit="8" fill="none"/>
+                        <path d="M0 0 68.9813 0 166 92.5 68.9813 185 0 185 97.0188 92.5Z" stroke="#0070C0" stroke-width="20.625" stroke-miterlimit="8" fill="#0070C0" transform="matrix(-1 0 0 1 3742.5 1621.5)"/>
+                        <path d="M0 0 593.486 0 704 99.5002 593.486 199 0 199Z" stroke="#A6A6A6" stroke-width="6.875" stroke-miterlimit="8" fill="#A6A6A6" transform="matrix(-1 0 0 1 4400.5 1616.5)"/>
+                        <text class="station-name" fill="#A6A6A6" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="165" writing-mode="tb-rl" transform="matrix(1 0 0 1 3868.83 1006)" x="56.8799" y="19.8193">中目黒</text>
+                        <text class="line-code" fill="#A6A6A6" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 3775.97 1600)">TY</text>
+                        <text fill="#A6A6A6" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 3899.15 1600)">-</text>
+                        <text class="station-num" fill="#A6A6A6" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 3938.68 1600)">03</text>
+                        <text font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="64" transform="matrix(1 0 0 1 3798.9 1911)">日比谷線</text>
+                        <rect x="3820.5" y="1640.5" width="219" height="158" stroke="#FFFFFF" stroke-width="6.875" stroke-miterlimit="8" fill="#FFFFFF"/>
+
+                        <!-- 上部表示エリア -->
+                        <rect x="0.499836" y="0.499836" width="4406" height="731" stroke="#262626" stroke-width="6.875" stroke-miterlimit="8" fill="#262626"/>
+                        <rect x="0.499836" y="731.5" width="4400" height="36.0001" stroke="#FF0000" stroke-width="6.875" stroke-miterlimit="8" fill="#FF0000"/>
+                        <text id="main-station-name" fill="#FFFFFF" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="458" transform="matrix(1 0 0 1 1889.54 658)">祐天寺</text>
+                        <!--<text fill="#FFFFFF" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="128" transform="matrix(1 0 0 1 988.48 173)">新横浜方面</text>-->
+                        <text fill="#FFFFFF" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="165" transform="matrix(1 0 0 1 988.48 173)">元町・中華街</text>
+                        <text fill="#FFFFFF" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="165" transform="matrix(1 0 0 1 2100.77 176)">行き</text>
+                        <path d="M43.5002 73.6674C43.5002 52.5881 60.5883 35.4999 81.6676 35.4999L792.333 35.4999C813.412 35.4999 830.5 52.5881 830.5 73.6674L830.5 226.332C830.5 247.412 813.412 264.5 792.333 264.5L81.6676 264.5C60.5883 264.5 43.5002 247.412 43.5002 226.332Z" stroke="#0073DD" stroke-width="6.875" stroke-miterlimit="8" fill="#0073DD" fill-rule="evenodd"/>
+                        <text fill="#FFFFFF" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="165" transform="matrix(1 0 0 1 269.761 204)">普通</text>
+                        <!--<text fill="#FFFFFF" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 32.3746 374)">相鉄線内</text>
+                        <text fill="#FFFFFF" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 490.708 374)">各停</text>-->
+                        <text fill="#FFFFFF" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="165" transform="matrix(1 0 0 1 302.909 676)">つぎは</text>
+                        <path d="M963 349.668C963 312.296 993.296 282 1030.67 282L1314.33 282C1351.7 282 1382 312.296 1382 349.668L1382 620.332C1382 657.704 1351.7 688 1314.33 688L1030.67 688C993.296 688 963 657.704 963 620.332Z" stroke="#FFFFFF" stroke-width="10.3125" stroke-miterlimit="8" fill="#FF0000" fill-rule="evenodd"/>
+                        <text id="next-station-line-code" fill="#FFFFFF" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 1111.14 413)">TY</text>
+                        <text id="next-station-number" fill="#FFFFFF" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="248" transform="matrix(1 0 0 1 1030.64 647)">04</text>
+                        <path d="M3903.5 62.5006C3903.5 40.9611 3920.96 23.4999 3942.5 23.4999L4098.5 23.4999C4120.04 23.4999 4137.5 40.9611 4137.5 62.5006L4137.5 218.499C4137.5 240.039 4120.04 257.5 4098.5 257.5L3942.5 257.5C3920.96 257.5 3903.5 240.039 3903.5 218.499Z" stroke="#FFFFFF" stroke-width="6.875" stroke-miterlimit="8" fill="#FFFFFF"/>
+                        <text fill="#000000" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="92" transform="matrix(1 0 0 1 4164.08 226)">号車</text>
+                        <text fill="#000000" font-family="Yu Gothic,Yu Gothic_MSFontService,sans-serif" font-weight="700" font-size="183" transform="matrix(1 0 0 1 3928.92 212)">４</text>
+                    </g>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STATIONS_DATA = [
+            { name: "新丸子", num: "10" }, { name: "多摩川", num: "09" },
+            { name: "田園調布", num: "08" }, { name: "自由が丘", num: "07" },
+            { name: "都立大学", num: "06" }, { name: "学芸大学", num: "05" },
+            { name: "祐天寺", num: "04" }, { name: "中目黒", num: "03" },
+        ];
+
+        const codeTextarea = document.getElementById('python-code');
+        const runButton = document.getElementById('run-button');
+        const errorMessage = document.getElementById('error-message');
+
+        function updateDisplay() {
+            const code = codeTextarea.value.trim();
+            errorMessage.style.display = 'none';
+
+            const match = code.match(/^print\(\s*(['"])(?:つぎ|次)は(.+?)\1\s*\)$/);
+            if (!match) {
+                showError('<code>print("つぎは駅名")</code> の形式で入力してください。');
+                return;
+            }
+
+            const nextStationName = match[2];
+            const currentStation = STATIONS_DATA.find(s => s.name === nextStationName);
+            if (!currentStation) {
+                showError(`駅名「${nextStationName}」は路線データにありません。`);
+                return;
+            }
+
+            document.getElementById('main-station-name').textContent = currentStation.name;
+            document.getElementById('next-station-number').textContent = currentStation.num;
+        }
+
+        function showError(message) {
+            errorMessage.innerHTML = message;
+            errorMessage.style.display = 'block';
+        }
+        
+        runButton.addEventListener('click', updateDisplay);
+        window.addEventListener('load', updateDisplay);
+
+        /* === 変更点(3): 画面全体を比率を保ったままスケーリングする処理 === */
+        function scaleViewport() {
+            const designWidth = 1600; // CSSで設定したbodyの基準幅
+            const windowWidth = window.innerWidth;
+            const scale = windowWidth / designWidth;
+
+            // body要素全体をスケールさせる
+            document.body.style.transform = `scale(${scale})`;
+
+            // スケール後のbodyの高さに合わせて、親であるhtml要素の高さを調整
+            // これにより、ページの縦スクロールが正しく機能する
+            const bodyHeight = document.body.scrollHeight;
+            const scaledHeight = bodyHeight * scale;
+            document.documentElement.style.height = `${scaledHeight}px`;
+        }
+
+        // ページ読み込み時とウィンドウサイズ変更時にスケーリング関数を実行
+        window.addEventListener('load', scaleViewport);
+        window.addEventListener('resize', scaleViewport);
+    </script>
+</body>
+</html>
