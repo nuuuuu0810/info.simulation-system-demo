@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>呼び出しディスプレイシミュレーター（スケーリング対応）</title>
+    <style>
+        /* --- スケーリングの土台となるスタイル --- */
+        html {
+            overflow-x: hidden;
+        }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+        }
+        
+        .viewport {
+            /* ===== 変更点: 中央揃えと拡縮の基点を修正 ===== */
+            width: 800px;
+            margin: 0 auto; /* 通常のブロック要素として中央揃え */
+            transform-origin: top center; /* 拡縮の基点を「上辺の中央」に */
+        }
+
+        /* --- コンテンツ全体のコンテナ --- */
+        .main-container {
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        .panel {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        h2 {
+            margin-top: 0;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        /* --- 左カラム：操作パネル --- */
+        .left-column {
+            flex: 1 1 350px;
+            min-width: 300px;
+        }
+        #python-code {
+            width: 100%; height: 80px; font-family: Consolas, 'Courier New', monospace; font-size: 14px;
+            padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; box-sizing: border-box;
+        }
+        #check-button {
+            display: block; width: 100%; padding: 10px; font-size: 15px; font-weight: bold; color: white;
+            background-color: #007bff; border: none; border-radius: 4px; cursor: pointer;
+            margin-top: 10px; transition: background-color 0.2s;
+        }
+        #check-button:hover { background-color: #0056b3; }
+        .instruction-box {
+            background-color: #f8d7da; color: #721c24; padding: 8px 12px; margin-top: 10px;
+            border-radius: 4px; font-size: 12px;
+        }
+        .instruction-box code { font-family: Consolas, 'Courier New', monospace; font-weight: bold; }
+        #result-message {
+            margin-top: 10px; padding: 8px; border-radius: 4px; font-size: 13px;
+            font-weight: bold; text-align: center;
+        }
+        .correct { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .incorrect { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .hidden { display: none; }
+
+        /* --- 右カラム：デモ画面 --- */
+        .right-column {
+            flex: 1.5 1 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .demo-panel h2 { text-align: center; }
+
+        /* 呼び出し画面 */
+        .display-header { display: flex; }
+        .display-header div {
+            flex: 1; padding: 5px 0; color: white; text-align: center;
+            font-size: 13px; font-weight: bold;
+        }
+        .header-preparing { background-color: black; }
+        .header-ready { background-color: #d90000; }
+        .display-body { display: flex; align-items: center; }
+        .display-body > div { flex: 1; text-align: center; padding: 5px; }
+        .preparing-item { font-size: 16px; font-weight: bold; margin: 3px 0; }
+        .ready-number { font-size: 40px; font-weight: bold; color: #d90000; line-height: 1; }
+
+        /* 店員側画面 */
+        .staff-content-wrapper { display: flex; gap: 15px; align-items: flex-start; }
+        .staff-lists-container { flex: 1; min-width: 0; }
+        .numpad { flex: 1; min-width: 0; }
+        
+        .numpad-inner {
+            padding: 10px; border: 1px solid #ccc;
+            border-radius: 6px; background-color: #f9f9f9;
+        }
+        .staff-display { display: flex; }
+        .staff-display > div { flex: 1; text-align: center; padding: 5px 0; }
+        .staff-display .order-item { font-size: 13px; font-weight: bold; margin: 3px 0; cursor: pointer; }
+        
+        #numpad-input-area {
+            display: flex; align-items: center; background-color: white; border: 1px solid #aaa;
+            border-radius: 4px; padding: 3px 6px; margin-bottom: 8px;
+        }
+        #numpad-input {
+            flex-grow: 1; font-size: 16px; font-weight: bold; height: 24px;
+            border: none; outline: none; background: none;
+            min-width: 0;
+        }
+        #numpad-confirm {
+            padding: 4px 8px; font-size: 12px; font-weight: bold; color: white;
+            background-color: #28a745; border: none; border-radius: 4px; cursor: pointer;
+            white-space: nowrap;
+        }
+        #numpad-confirm:hover { background-color: #218838; }
+        .numpad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+        .numpad-grid button {
+            padding: 8px; font-size: 16px; font-weight: bold; border: 1px solid #ccc;
+            border-radius: 4px; background-color: #f0f0f0; cursor: pointer; transition: background-color 0.2s;
+        }
+        .numpad-grid button:hover { background-color: #e0e0e0; }
+        
+        .numpad-grid .btn-skyblue {
+            background-color: #87CEEB;
+            color: white;
+        }
+        .numpad-grid .btn-skyblue:hover {
+            background-color: #5F9EA0;
+        }
+    </style>
+</head>
+<body>
+    <div class="viewport">
+        <div class="main-container">
+            <!-- 左カラム -->
+            <div class="left-column">
+                <div class="panel">
+                    <h2>操作パネル</h2>
+                    <textarea id="python-code" placeholder="ここにコードを入力..."></textarea>
+                    <button id="check-button">実行</button>
+                    <div class="instruction-box">
+                        <code>print("つぎは駅名")</code> の形式で入力してください。
+                    </div>
+                    <p id="result-message" class="hidden"></p>
+                </div>
+            </div>
+            <!-- 右カラム -->
+            <div class="right-column">
+                <!-- 呼び出し画面 -->
+                <div class="panel demo-panel">
+                    <h2>呼び出し画面</h2>
+                    <div class="display-header">
+                        <div class="header-preparing">準備中</div>
+                        <div class="header-ready">出来上がった番号</div>
+                    </div>
+                    <div class="display-body">
+                        <div id="call-preparing-list">
+                            <p class="preparing-item">M1080</p><p class="preparing-item">210</p><p class="preparing-item">M1091</p>
+                            <p class="preparing-item">311</p><p class="preparing-item">192</p><p class="preparing-item">210</p>
+                        </div>
+                        <div><div id="ready-number-display" class="ready-number">M1079</div></div>
+                    </div>
+                </div>
+                <!-- 店員側画面 -->
+                <div class="panel demo-panel">
+                    <h2>店員側画面</h2>
+                    <div class="staff-content-wrapper">
+                        <div class="staff-lists-container">
+                            <div class="display-header">
+                                <div class="header-preparing">準備中</div>
+                                <div class="header-ready">出来上がった番号</div>
+                            </div>
+                            <div class="staff-display">
+                                <div id="staff-preparing-list">
+                                    <div class="order-item" data-order-id="M1080">M1080</div><div class="order-item" data-order-id="210">210</div>
+                                    <div class="order-item" data-order-id="M1091">M1091</div><div class="order-item" data-order-id="311">311</div>
+                                    <div class="order-item" data-order-id="192">192</div><div class="order-item" data-order-id="210">210</div>
+                                </div>
+                                <div id="staff-ready-list">
+                                    <div class="order-item" data-order-id="M1079">M1079</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="numpad">
+                            <div class="numpad-inner">
+                                <div id="numpad-input-area">
+                                    <input type="text" id="numpad-input" value="M1080" readonly>
+                                    <button id="numpad-confirm">決定</button>
+                                </div>
+                                <div class="numpad-grid">
+                                    <button>1</button><button>2</button><button>3</button>
+                                    <button>4</button><button>5</button><button>6</button>
+                                    <button>7</button><button>8</button><button>9</button>
+                                    <button>0</button><button>M</button><button class="btn-skyblue">C</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const codeInput = document.getElementById('python-code');
+            const checkButton = document.getElementById('check-button');
+            const resultMessage = document.getElementById('result-message');
+            const readyNumberDisplay = document.getElementById('ready-number-display');
+            const numpadInput = document.getElementById('numpad-input');
+            const numpadGrid = document.querySelector('.numpad-grid');
+            const confirmButton = document.getElementById('numpad-confirm');
+            const staffPreparingList = document.getElementById('staff-preparing-list');
+            const callPreparingList = document.getElementById('call-preparing-list');
+            const staffReadyList = document.getElementById('staff-ready-list');
+
+            checkButton.addEventListener('click', () => {
+                const userCode = codeInput.value.trim();
+                const lines = userCode.split('\n');
+                const line1Regex = /^\s*order\s*=\s*input\(\s*\)\s*$/;
+                const line2Regex = /^\s*print\(\s*order\s*\)\s*$/;
+                
+                resultMessage.classList.remove('hidden');
+                if (lines.length === 2 && line1Regex.test(lines[0]) && line2Regex.test(lines[1])) {
+                    resultMessage.textContent = '🎉 正解！';
+                    resultMessage.className = 'correct';
+                } else {
+                    resultMessage.textContent = '❌ 失敗。もう一度確認してください。';
+                    resultMessage.className = 'incorrect';
+                }
+            });
+            
+            numpadGrid.addEventListener('click', (event) => {
+                if (event.target.tagName !== 'BUTTON') return;
+                const key = event.target.textContent;
+                if (key === 'C') { 
+                    numpadInput.value = ''; 
+                } 
+                else if (numpadInput.value.length < 8) { 
+                    numpadInput.value += key; 
+                }
+            });
+
+            confirmButton.addEventListener('click', () => {
+                const numberToCall = numpadInput.value;
+                if (!numberToCall) return;
+                readyNumberDisplay.textContent = numberToCall;
+                const itemInStaffList = staffPreparingList.querySelector(`[data-order-id="${numberToCall}"]`);
+                if (itemInStaffList) itemInStaffList.remove();
+                callPreparingList.querySelectorAll('.preparing-item').forEach(item => {
+                    if (item.textContent === numberToCall) item.remove();
+                });
+                if (!staffReadyList.querySelector(`[data-order-id="${numberToCall}"]`)) {
+                    const newItem = document.createElement('div');
+                    newItem.className = 'order-item';
+                    newItem.dataset.orderId = numberToCall;
+                    newItem.textContent = numberToCall;
+                    staffReadyList.prepend(newItem);
+                }
+                numpadInput.value = '';
+            });
+
+            staffPreparingList.addEventListener('click', (event) => {
+                if(event.target.classList.contains('order-item')) {
+                    numpadInput.value = event.target.dataset.orderId;
+                }
+            });
+        });
+
+        function scaleViewport() {
+            const designWidth = 800;
+            const viewport = document.querySelector('.viewport');
+            const windowWidth = window.innerWidth;
+            const scale = windowWidth / designWidth;
+
+            viewport.style.transform = `scale(${scale})`;
+
+            const viewportHeight = viewport.scrollHeight;
+            const scaledHeight = viewportHeight * scale;
+            
+            // bodyの高さを調整して、htmlの高さが正しく計算されるようにする
+            // これにより、ビューポートの外側の余白が正しく確保される
+            document.body.style.height = `${scaledHeight}px`;
+        }
+
+        window.addEventListener('load', scaleViewport);
+        window.addEventListener('resize', scaleViewport);
+    </script>
+</body>
+</html>
