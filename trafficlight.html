@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>信号機シミュレーション</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #e9ecef;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* 全体を囲む枠 */
+        .container {
+            display: flex;
+            gap: 40px; /* 左右エリアの間隔 */
+            padding: 40px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 左エリア（コードとボタン） */
+        .left-pane {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 右エリア（信号機） */
+        .right-pane {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 150px; /* 右エリアの幅を固定 */
+        }
+        
+        #code-editor {
+            width: 400px;
+            height: 300px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 15px;
+            background-color: #fff;
+            color: #343a40;
+            resize: none;
+            box-sizing: border-box;
+        }
+
+        #run-button {
+            margin-top: 20px; /* テキストボックスとの間隔 */
+            padding: 12px 25px;
+            font-size: 18px;
+            color: white;
+            background-color: #007bff; /* 青色 */
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            width: 100%;
+        }
+        #run-button:hover {
+            background-color: #0056b3;
+        }
+        #run-button:disabled {
+            background-color: #b0c4de;
+            cursor: not-allowed;
+        }
+        
+        /* 信号機 */
+        #traffic-light {
+            background-color: #212529;
+            padding: 15px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border: 3px solid #000;
+        }
+        .light {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background-color: #495057; /* 消灯時の色 */
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+        #red-light.on {
+            background-color: #dc3545;
+            box-shadow: 0 0 25px #dc3545;
+        }
+        #yellow-light.on {
+            background-color: #ffc107;
+            box-shadow: 0 0 25px #ffc107;
+        }
+        #green-light.on {
+            background-color: #28a745;
+            box-shadow: 0 0 25px #28a745;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="left-pane">
+            <!-- ↓↓↓ ここのコードを更新しました ↓↓↓ -->
+            <textarea id="code-editor" readonly>
+electricity = 10
+while(electricity >= 0):
+    for i in range(0,5):
+        if(i > 2):
+            print('青')
+        elif(i > 3):
+            print('黄')
+        else:
+            print('赤')
+    electricity = electricity - 1</textarea>
+            <button id="run-button">実行</button>
+        </div>
+        <div class="right-pane">
+            <div id="traffic-light">
+                <div id="red-light" class="light"></div>
+                <div id="yellow-light" class="light"></div>
+                <div id="green-light" class="light"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM要素の取得
+        const runButton = document.getElementById('run-button');
+        const redLight = document.getElementById('red-light');
+        const yellowLight = document.getElementById('yellow-light');
+        const greenLight = document.getElementById('green-light');
+
+        let electricity;
+        let simulationTimeout;
+
+        const turnOffAllLights = () => {
+            redLight.classList.remove('on');
+            yellowLight.classList.remove('on');
+            greenLight.classList.remove('on');
+        };
+
+        const endSimulation = () => {
+            turnOffAllLights();
+            runButton.disabled = false;
+            runButton.textContent = '実行';
+        };
+
+        const showYellow = () => {
+            if (electricity <= 0) {
+                endSimulation();
+                return;
+            }
+            turnOffAllLights();
+            yellowLight.classList.add('on');
+            simulationTimeout = setTimeout(showRed, 1000); // 黄: 1秒
+        };
+
+        const showGreen = () => {
+            if (electricity <= 0) {
+                endSimulation();
+                return;
+            }
+            turnOffAllLights();
+            greenLight.classList.add('on');
+            simulationTimeout = setTimeout(showYellow, 2000); // 青: 2秒
+        };
+
+        const showRed = () => {
+            if (electricity <= 0) {
+                endSimulation();
+                return;
+            }
+            turnOffAllLights();
+            redLight.classList.add('on');
+            runButton.textContent = `残り ${electricity} 回`;
+            electricity--;
+            simulationTimeout = setTimeout(showGreen, 2000); // 赤: 2秒
+        };
+        
+        runButton.addEventListener('click', () => {
+            runButton.disabled = true;
+            clearTimeout(simulationTimeout);
+            electricity = 10;
+            showRed();
+        });
+    </script>
+</body>
+</html>
