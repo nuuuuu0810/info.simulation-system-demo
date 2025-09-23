@@ -5,26 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>電車案内表示 操作デモ（レスポンシブ対応）</title>
     <style>
-        /* === 変更点(1): bodyのスタイルを標準的なレスポンシブ対応に変更 === */
+        /* === 変更点(1): htmlとbodyのスタイルをスケーリングの土台として設定 === */
+        html {
+            /* どのような場合でも横スクロールバーが出ないようにする */
+            overflow-x: hidden;
+        }
+
         body {
+            /* デザインの基準となる幅で固定 */
+            width: 1600px; 
+            /* JavaScriptで拡縮する際の基点を左上に設定 */
+            transform-origin: top left;
+            
+            /* 以下はページ全体の基本スタイル */
             margin: 0;
-            padding: 20px; /* ページ全体の余白をbodyに設定 */
             font-family: 'Hiragino Sans', 'ヒラギノ角ゴ ProN W6', 'メイリオ', Meiryo, sans-serif;
             background-color: #f0f2f5;
             color: #333;
             box-sizing: border-box;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            
+            /* JavaScriptによって transform: scale() が適用されます */
         }
 
-        /* === 変更点(2): split-containerをレスポンシブ対応レイアウトの親として設定 === */
+        /* === 変更点(2): split-containerのスタイルを調整 === */
         .split-container {
             display: flex;
             gap: 30px;
             align-items: flex-start;
-            max-width: 1600px; /* コンテンツの最大幅を設定 */
-            margin: 0 auto;    /* コンテンツを中央寄せ */
+            /* bodyからpaddingを移動し、コンテンツの余白を確保 */
+            padding: 20px;
             box-sizing: border-box;
+            /* bodyで幅を固定しているため、max-widthやmargin:autoは不要 */
         }
 
         /* === 以下、レイアウト以外のスタイルは基本的に変更なし === */
@@ -42,7 +55,7 @@
             padding: 25px;
             border-radius: 8px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            position: sticky; /* スクロールに追従 */
+            position: sticky;
             top: 20px;
         }
         .control-panel h2 {
@@ -105,24 +118,10 @@
             display: block;
             aspect-ratio: 4471 / 2505; 
         }
-
-        /* === 変更点(3): メディアクエリを追加してスマホなどの狭い画面に対応 === */
-        @media (max-width: 1024px) {
-            body {
-                padding: 15px; /* スマホ用に余白を少し狭くする */
-            }
-            .split-container {
-                flex-direction: column; /* 縦並びにする */
-            }
-            .left-panel, .right-panel {
-                width: 100%;
-                min-width: unset; /* min-widthをリセット */
-            }
-        }
-
     </style>
 </head>
 <body>
+    <!-- HTML構造は元のシンプルな形に戻しました -->
     <div class="split-container">
         <div class="left-panel">
             <div class="control-panel">
@@ -259,13 +258,6 @@
             const code = codeTextarea.value.trim();
             errorMessage.style.display = 'none';
 
-            // 初期表示用にtextareaが空でもエラーを出さないようにする
-            if (code === '') {
-                codeTextarea.value = 'print("つぎは祐天寺")';
-                updateDisplay(); // 値を設定してから再度実行
-                return;
-            }
-
             const match = code.match(/^print\(\s*(['"])(?:つぎ|次)は(.+?)\1\s*\)$/);
             if (!match) {
                 showError('<code>print("つぎは駅名")</code> の形式で入力してください。');
@@ -289,12 +281,27 @@
         }
         
         runButton.addEventListener('click', updateDisplay);
-        // ページ読み込み時にデフォルトの表示を実行
         window.addEventListener('load', updateDisplay);
 
-        /* === 変更点(4): 画面全体をスケーリングする処理を削除 === */
-        // (このセクションは不要になったため削除しました)
+        /* === 変更点(3): 画面全体を比率を保ったままスケーリングする処理 === */
+        function scaleViewport() {
+            const designWidth = 1600; // CSSで設定したbodyの基準幅
+            const windowWidth = window.innerWidth;
+            const scale = windowWidth / designWidth;
 
+            // body要素全体をスケールさせる
+            document.body.style.transform = `scale(${scale})`;
+
+            // スケール後のbodyの高さに合わせて、親であるhtml要素の高さを調整
+            // これにより、ページの縦スクロールが正しく機能する
+            const bodyHeight = document.body.scrollHeight;
+            const scaledHeight = bodyHeight * scale;
+            document.documentElement.style.height = `${scaledHeight}px`;
+        }
+
+        // ページ読み込み時とウィンドウサイズ変更時にスケーリング関数を実行
+        window.addEventListener('load', scaleViewport);
+        window.addEventListener('resize', scaleViewport);
     </script>
 </body>
 </html>
