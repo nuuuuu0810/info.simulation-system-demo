@@ -18,7 +18,7 @@
         #scalable-wrapper {
             width: 1000px; /* デザインの基準となる幅 */
             display: inline-block;
-            transform-origin: top center; /* 左上を基点に拡大・縮小 */
+            transform-origin: top center; /* 中央上部を基点に拡大・縮小 */
             box-sizing: border-box;
             margin-top: 20px; /* 上部に少し余白 */
         }
@@ -33,11 +33,11 @@
             display: block;
         }
 
-        /* === SVGに重ねる要素のスタイル === */
+        /* === SVGに重ねる要素のスタイル (修正箇所) === */
         #pythonCode {
             position: absolute;
             /* SVGの白い四角形の位置にパーセントで配置 */
-            top: 7.7%; left: 0.1%; width: 34.4%; height: 55.5%;
+            top: 7.7%; left: 0.1%; width: 34.6%; height: 15.5%; /* [修正] heightを正しい値に修正 */
             background: transparent; border: none; outline: none; resize: none;
             padding: 20px;
             font-family: monospace;
@@ -49,7 +49,7 @@
         #checkCodeBtn {
             position: absolute;
             /* SVGの青いボタンの位置にパーセントで配置 */
-            top: 50.6%; left: 0.15%; width: 34.5%; height: 10.7%;
+            top: 29.6%; left: 0.15%; width: 34.6%; height: 10.7%; /* [修正] topを正しい値に修正 */
             background: transparent; border: none; cursor: pointer;
             color: white;
             font-family: 'Yu Gothic', sans-serif;
@@ -69,7 +69,7 @@
         #feedbackMessage {
             position: absolute;
             /* ボタンの下に配置 */
-            top: 41%; left: 0.15%; width: 34.5%;
+            top: 41%; left: 0.15%; width: 34.6%; /* [修正] ボタンと幅を合わせる */
             font-weight: bold;
             font-size: 16px;
             padding: 10px;
@@ -156,14 +156,15 @@
         updateDisplay();
     });
 
-    // === 画面全体をスケーリングする処理 ===
+    // === 画面全体をスケーリングする処理 (修正箇所) ===
     function scaleViewport() {
         const wrapper = document.getElementById('scalable-wrapper');
         if (!wrapper) return;
-        const designWidth = 1200; // CSSで設定した基準幅
+        const designWidth = 1000; // [修正] CSSで設定した基準幅(1000px)に修正
         const windowWidth = window.innerWidth;
         const scale = windowWidth / designWidth;
         wrapper.style.transform = `scale(${scale})`;
+        // スケーリング後の高さをbodyに設定し、不要なスクロールバーを防ぐ
         document.body.style.height = `${wrapper.getBoundingClientRect().height}px`;
     }
 
