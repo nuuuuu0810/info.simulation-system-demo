@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>呼び出し一覧</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #resetButton {
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #ccc;
+            font-size: 1.5em;
+        }
+
+        li.resolved {
+            color: #888;
+            text-decoration: line-through;
+        }
+
+        input[type="checkbox"] {
+            width: 25px;
+            height: 25px;
+            margin-right: 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>呼び出し一覧</h1>
+
+    <ul id="callList">
+        <!-- 呼び出された番号がここに表示されます -->
+    </ul>
+
+    <div class="controls">
+        <button id="resetButton">全件リセット</button>
+    </div>
+
+    <!-- Firebase SDKの読み込み -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBuBgdXp-C8iOZyEgLxO-t3WDCs4MsF1rk",
+            authDomain: "call-ta-63e8b.firebaseapp.com",
+            databaseURL: "https://call-ta-63e8b-default-rtdb.firebaseio.com",
+            projectId: "call-ta-63e8b",
+            storageBucket: "call-ta-63e8b.firebasestorage.app",
+            messagingSenderId: "561072412687",
+            appId: "1:561072412687:web:fed1ef08ee7d69abd02b7a",
+            measurementId: "G-V37518KVFF"
+        };
+
+        // Firebaseの初期化
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const callListEl = document.getElementById('callList');
+
+        // 'calls'の場所にあるデータを監視
+        const callsRef = database.ref('calls').orderByChild('timestamp'); // 時刻順に並び替え
+
+        callsRef.on('value', (snapshot) => {
+            callListEl.innerHTML = ''; // 一旦リストを空にする
+
+            snapshot.forEach((childSnapshot) => {
+                const key = childSnapshot.key; // データの一意なID
+                const data = childSnapshot.val(); // データ本体 {number: "5", resolved: false, timestamp: 16...}
+
+                // リストアイテム(<li>)を作成
+                const li = document.createElement('li');
+
+                // チェックボックスを作成
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = data.resolved;
+                // チェックボックスの状態が変わったときの処理
+                checkbox.addEventListener('change', () => {
+                    // データベースの'resolved'の値を更新する
+                    database.ref('calls/' + key).update({ resolved: checkbox.checked });
+                });
+
+                // --- ▼ここから変更▼ ---
+                // タイムスタンプを日付と時間の文字列に変換
+                const date = new Date(data.timestamp);
+                const month = String(date.getMonth() + 1).padStart(2, '0'); // 月 (0-11なので+1)
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                
+                // 表示フォーマットを "MM/DD HH:mm" にする
+                const formattedDateTime = `${month}/${day} ${hours}:${minutes}`;
+
+                // 表示するテキストを作成
+                const text = document.createTextNode(`${data.number}（${formattedDateTime}）`);
+                // --- ▲ここまで変更▲ ---
+
+                // 作成した要素をリストアイテムに追加
+                li.appendChild(checkbox);
+                li.appendChild(text);
+
+                // 解決済みならCSSクラスを追加
+                if (data.resolved) {
+                    li.classList.add('resolved');
+                }
+
+                // 画面のリストの【先頭】にリストアイテムを追加
+                callListEl.prepend(li);
+            });
+        });
+
+        // リセットボタンの機能
+        const resetButton = document.getElementById('resetButton');
+        resetButton.addEventListener('click', () => {
+            // 確認ダイアログを表示
+            if (confirm('本当にすべての呼び出しをリセットしますか？この操作は元に戻せません。')) {
+                // 'calls'のデータをすべて削除
+                database.ref('calls').remove()
+                    .then(() => {
+                        console.log('すべてのデータが削除されました。');
+                    })
+                    .catch((error) => {
+                        console.error('データの削除中にエラーが発生しました: ', error);
+                        alert('エラーが発生しました。データを削除できませんでした。');
+                    });
+            }
+        });
+    </script>
+</body>
+
+</html>
