@@ -488,63 +488,127 @@
         // ロビーロジック
         // ====================================================================================
 
-        enterLobbyButton.addEventListener('click', () => {
-            const playerName = playerNameInput.value.trim();
-            if (!playerName) {
-                alert('名前を入力してください。');
-                return;
-            }
-            myPlayerInfo = {
-                id: myPlayerId,
-                name: playerName
-            };
-            loginContainer.classList.add('hidden');
-            lobbyContainer.classList.remove('hidden');
-            userNameDisplay.textContent = myPlayerInfo.name;
-        });
+        // ====================================================================================
+// ロビーロジック (修正・確認版)
+// ====================================================================================
 
-        createRoomButton.addEventListener('click', async () => {
-            const roomId = Math.random().toString(36).substr(2, 6).toUpperCase();
-            roomRef = db.ref('rooms/' + roomId);
-            try {
-                await roomRef.set({
-                    gameState: 'waiting',
-                    seats: {},
-                    createdAt: firebase.database.ServerValue.TIMESTAMP
-                });
-                enterRoom(roomId);
-            } catch (error) {
-                console.error("ルームの作成に失敗しました: ", error);
-                alert("ルームの作成に失敗しました。データベースの権限設定を確認してください。");
-            }
-        });
+enterLobbyButton.addEventListener('click', () => {
+    const playerName = playerNameInput.value.trim();
+    if (!playerName) {
+        alert('名前を入力してください。');
+        return;
+    }
+    myPlayerInfo = {
+        id: myPlayerId,
+        name: playerName
+    };
+    loginContainer.classList.add('hidden');
+    lobbyContainer.classList.remove('hidden');
+    userNameDisplay.textContent = myPlayerInfo.name;
+});
 
-        joinRoomButton.addEventListener('click', () => {
-            const roomId = roomIdInput.value.trim().toUpperCase();
-            if (!roomId) return;
-            const ref = db.ref('rooms/' + roomId);
-            ref.once('value', snapshot => {
-                if (snapshot.exists()) {
-                    enterRoom(roomId);
-                } else {
-                    alert('ルームが見つかりません。');
-                }
-            });
-        });
+// --- ルームを作成する処理 ---
+createRoomButton.addEventListener('click', async () => {
+    // 1. 新しいランダムなルームIDを生成
+    const roomId = Math.random().toString(36).substr(2, 6).toUpperCase();
+    
+    // 2. データベースの 'rooms/新しいID' という場所への参照を作成
+    roomRef = db.ref('rooms/' + roomId);
 
-        leaveRoomButton.addEventListener('click', async () => {
-            if (mySeatId && currentRoomId) {
-                const seatRef = db.ref(`rooms/${currentRoomId}/seats/${mySeatId}`);
-                await seatRef.onDisconnect().cancel();
-                await seatRef.remove();
-            }
-            if (roomRef) roomRef.off();
-            currentRoomId = null;
-            mySeatId = null;
-            roomRef = null;
-            seatSelection.classList.add('hidden');
-            roomIdInput.parentElement.classList.remove('hidden');
+    // 3. ルームの初期データをデータベースに書き込む
+    try {
+        await roomRef.set({
+            gameState: 'waiting',
+            seats: {},
+            createdAt: firebase.database.ServerValue.TIMESTAMP
         });
+        // 4. 書き込みが成功したら、自分もそのルームに入る
+        console.log(`ルーム ${roomId} の作成に成功しました。`);
+        enterRoom(roomId);
+    } catch (error) {
+        // 5. 書き込みに失敗した場合、エラーを表示する
+        console.error("ルームの作成に失敗しました: ", error);
+        alert("ルームの作成に失敗しました。Firebaseの設定やセキュリティルールを確認してください。");
+    }
+});
+
+// --- ルームに参加する処理 ---
+joinRoomButton.addEventListener('click', () => {
+    const roomId = roomIdInput.value.trim().toUpperCase();
+    if (!roomId) {
+        alert('ルームIDを入力してください。');
+        return;
+    }
+    
+    // 1. 指定されたルームIDへの参照を作成
+    const ref = db.ref('rooms/' + roomId);
+    
+    // 2. データベースにそのIDのルームが存在するかを一度だけ確認 (once)
+    ref.once('value', snapshot => {
+        if (snapshot.exists()) {
+            // 3. 存在すれば、ルームに入る
+            console.log(`ルーム ${roomId} が見つかりました。参加します。`);
+            enterRoom(roomId);
+        } else {
+            // 4. 存在しなければ、エラーを表示
+            console.log(`ルーム ${roomId} が見つかりませんでした。`);
+            alert('ルームが見つかりません。IDが正しいか確認してください。');
+        }
+    }).catch(error => {
+        console.error("ルームの検索に失敗しました: ", error);
+        alert("ルームの検索に失敗しました。Firebaseへの接続を確認してください。");
+    });
+});
+
+// --- ルームから退出する処理 ---
+leaveRoomButton.addEventListener('click', async () => {
+    // 自分の席情報を削除
+    if (mySeatId && currentRoomId) {
+        const seatRef = db.ref(`rooms/${currentRoomId}/seats/${mySeatId}`);
+        await seatRef.onDisconnect().cancel(); // ページを閉じた時の削除予約をキャンセル
+        await seatRef.remove();
+    }
+    
+    // データベースの監視を停止
+    if (roomRef) {
+        roomRef.off();
+    }
+    
+    // 変数を初期化してロビーの初期画面に戻る
+    currentRoomId = null;
+    mySeatId = null;
+    roomRef = null;
+    seatSelection.classList.add('hidden');
+    roomIdInput.parentElement.classList.remove('hidden');
+});
+
+
+// --- ルームに入室した後の共通処理 ---
+function enterRoom(roomId) {
+    currentRoomId = roomId;
+    roomRef = db.ref('rooms/' + roomId);
+
+    // ロビー画面の表示を切り替え
+    roomIdInput.parentElement.classList.add('hidden');
+    seatSelection.classList.remove('hidden');
+
+    // ブラウザを閉じたときに自動で席から退出する処理を設定
+    window.addEventListener('beforeunload', () => {
+        if (mySeatId && currentRoomId) {
+            db.ref(`rooms/${currentRoomId}/seats/${mySeatId}`).remove();
+        }
+    });
+
+    // ★★★ここがリアルタイム更新の心臓部★★★
+    // ルームデータの変更を常に監視し、変更があるたびに handleRoomUpdate を呼び出す
+    roomRef.on('value', handleRoomUpdate, (error) => {
+        console.error("ルームデータの監視に失敗しました: ", error);
+        alert("ルームデータとの同期に失敗しました。ページを再読み込みしてください。");
+        leaveRoomButton.click(); // エラー時は自動的に退出させる
+    });
+}
+
+// (以降の handleRoomUpdate, renderSeats, takeSeat などの関数は変更不要です)
 
         function enterRoom(roomId) {
             currentRoomId = roomId;
