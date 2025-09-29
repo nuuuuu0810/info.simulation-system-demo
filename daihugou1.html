@@ -425,6 +425,9 @@
         // Firebaseの初期化
         // ====================================================================================
         const firebaseConfig = {
+            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+            // ★★★ 注意：ここはあなたのFirebaseプロジェクトの設定情報に置き換えてください ★★★
+            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
             apiKey: "AIzaSyBvSHSOVos2i4VJJHvw_Yf2c65ay6sy5gM",
             authDomain: "daihugou2025.firebaseapp.com",
             databaseURL: "https://daihugou2025-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -508,9 +511,7 @@
             const roomId = Math.random().toString(36).substr(2, 6).toUpperCase();
             roomRef = db.ref('rooms/' + roomId);
             try {
-                // ★★★★★★★★★★★★★★★★★★★★
-                // ★★★ 修正点：seats: {} を追加 ★★★
-                // ★★★★★★★★★★★★★★★★★★★★
+                // ★★★ 修正点: seats: {} を追加して、ルーム作成時に座席データを初期化します ★★★
                 await roomRef.set({
                     gameState: 'waiting',
                     seats: {}, 
@@ -519,6 +520,7 @@
                 console.log(`ルーム ${roomId} の作成に成功しました。`);
                 enterRoom(roomId);
             } catch (error) {
+                // ★★★ 修正点: エラーハンドリングを追加 ★★★
                 console.error("ルームの作成に失敗しました: ", error);
                 alert("ルームの作成に失敗しました。Firebaseの設定やセキュリティルールを確認してください。");
             }
@@ -540,7 +542,7 @@
                     console.log(`ルーム ${roomId} が見つかりませんでした。`);
                     alert('ルームが見つかりません。IDが正しいか確認してください。');
                 }
-            }).catch(error => {
+            }).catch(error => { // ★★★ 修正点: エラーハンドリングを追加 ★★★
                 console.error("ルームの検索に失敗しました: ", error);
                 alert("ルームの検索に失敗しました。Firebaseへの接続を確認してください。");
             });
@@ -569,6 +571,7 @@
             roomRef = db.ref('rooms/' + roomId);
             roomIdInput.parentElement.classList.add('hidden');
             seatSelection.classList.remove('hidden');
+            // ★★★ 修正点: データベースの監視が失敗した場合のエラーハンドリングを追加 ★★★
             roomRef.on('value', handleRoomUpdate, (error) => {
                 console.error("ルームデータの監視に失敗しました: ", error);
                 alert("ルームデータとの同期に失敗しました。ページを再読み込みしてください。");
