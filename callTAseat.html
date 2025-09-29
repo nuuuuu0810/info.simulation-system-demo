@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ja">
+ 
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>呼び出し座席表</title>
+<style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+ 
+        h1 {
+            text-align: center;
+        }
+ 
+        /* --- ▼ここからCSSを修正▼ --- */
+        #seat-map {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            /* 行の間隔は10px */
+            row-gap: 10px;
+            /* 列の基本の間隔を狭く設定（これが2列目と3列目の間になる）*/
+            column-gap: 1px;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        /* 
+         * DOMの追加順序に基づき、見た目の列にマージンを追加して間隔を調整
+         * DOM追加順: 4列目(右端), 3列目, 2列目, 1列目(左端), 4列目(2行目)...
+         * 
+         * DOMの4n番目 = 見た目の1列目
+         * DOMの4n-1番目 = 見た目の2列目
+         * DOMの4n-2番目 = 見た目の3列目
+         * DOMの4n-3番目 = 見た目の4列目
+        */
+ 
+        /* 1列目と2列目の間を広くする */
+        /* -> 見た目の1列目の要素の左側に広いマージンを追加 */
+        .seat:nth-child(4n) {
+            margin-left: 30px;
+        }
+ 
+        /* 3列目と4列目の間を広くする */
+        /* -> 見た目の3列目の要素の左側に広いマージンを追加 */
+        .seat:nth-child(4n-2) {
+            margin-left: 30px;
+        }
+        /* --- ▲ここまでCSSを修正▲ --- */
+ 
+        .seat {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 20px 10px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            background-color: #e9ecef;
+        }
+ 
+        .seat.active {
+            background-color: #ffc107;
+            color: #333;
+            border-color: #ffa000;
+            animation: blink 1.2s infinite ease-in-out;
+        }
+ 
+        @keyframes blink {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.05);
+                opacity: 0.7;
+            }
+        }
+ 
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+ 
+        #resetButton {
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+ 
+        #sound-permission-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+            flex-direction: column;
+        }
+ 
+        #enableSoundButton {
+            padding: 20px 40px;
+            font-size: 1.5em;
+            cursor: pointer;
+            border-radius: 10px;
+            border: none;
+        }
+</style>
+</head>
+ 
+<body>
+ 
+    <div id="sound-permission-overlay">
+<p>新しい呼び出しを音で通知します</p>
+<button id="enableSoundButton">通知音を有効にする</button>
+</div>
+ 
+    <h1>呼び出し座席表</h1>
+ 
+    <div id="seat-map"></div>
+ 
+    <div class="controls">
+<button id="resetButton">全件リセット</button>
+</div>
+ 
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+ 
+    <script>
+        // --- JavaScriptは前回から変更ありません ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBuBgdXp-C8iOZyEgLxO-t3WDCs4MsF1rk",
+            authDomain: "call-ta-63e8b.firebaseapp.com",
+            databaseURL: "https://call-ta-63e8b-default-rtdb.firebaseio.com",
+            projectId: "call-ta-63e8b",
+            storageBucket: "call-ta-63e8b.firebasestorage.app",
+            messagingSenderId: "561072412687",
+            appId: "1:561072412687:web:fed1ef08ee7d69abd02b7a",
+            measurementId: "G-V37518KVFF"
+        };
+ 
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const seatMapEl = document.getElementById('seat-map');
+ 
+        const notificationSound = new Audio('chime.mp3');
+        notificationSound.muted = true;
+        const enableSoundButton = document.getElementById('enableSoundButton');
+        const soundPermissionOverlay = document.getElementById('sound-permission-overlay');
+        enableSoundButton.addEventListener('click', () => {
+            notificationSound.muted = false;
+            notificationSound.play().then(() => {
+                soundPermissionOverlay.style.display = 'none';
+                notificationSound.pause();
+                notificationSound.currentTime = 0;
+            }).catch(error => {
+                alert('音声の有効化に失敗しました。');
+                console.error(error);
+            });
+        });
+        const pageLoadTime = Date.now();
+        database.ref('calls').on('child_added', (snapshot) => {
+            const data = snapshot.val();
+            if (data.timestamp > pageLoadTime && !data.resolved) {
+                notificationSound.play().catch(error => {
+                    console.log('音声の自動再生に失敗しました。', error);
+                });
+            }
+        });
+ 
+        let activeCalls = {};
+ 
+        function initializeSeatMap() {
+            const rows = 10;
+            const cols = 4;
+            const seatElements = [];
+ 
+            for (let i = 1; i <= 40; i++) {
+                const seat = document.createElement('div');
+                seat.classList.add('seat');
+                seat.id = `seat-${i}`;
+                seat.textContent = i;
+ 
+                seat.addEventListener('click', () => {
+                    const callKey = Object.keys(activeCalls).find(key =>
+                        activeCalls[key].number == i && !activeCalls[key].resolved
+                    );
+                    if (callKey) {
+                        database.ref('calls/' + callKey).update({ resolved: true });
+                    }
+                });
+                seatElements[i] = seat;
+            }
+ 
+            for (let row = 1; row <= rows; row++) {
+                for (let col = cols; col >= 1; col--) {
+                    const seatNumber = (col - 1) * rows + row;
+                    if (seatElements[seatNumber]) {
+                        seatMapEl.appendChild(seatElements[seatNumber]);
+                    }
+                }
+            }
+        }
+ 
+        const callsRef = database.ref('calls');
+        callsRef.on('value', (snapshot) => {
+            activeCalls = snapshot.val() || {};
+ 
+            const allSeats = document.querySelectorAll('.seat');
+            allSeats.forEach(seat => {
+                seat.classList.remove('active');
+            });
+ 
+            snapshot.forEach((childSnapshot) => {
+                const data = childSnapshot.val();
+                if (!data.resolved) {
+                    const seatToActivate = document.getElementById(`seat-${data.number}`);
+                    if (seatToActivate) {
+                        seatToActivate.classList.add('active');
+                    }
+                }
+            });
+        });
+ 
+        const resetButton = document.getElementById('resetButton');
+        resetButton.addEventListener('click', () => {
+            if (confirm('本当にすべての呼び出しをリセットしますか？この操作は元に戻せません。')) {
+                database.ref('calls').remove();
+            }
+        });
+ 
+        initializeSeatMap();
+</script>
+</body>
+ 
+</html>
