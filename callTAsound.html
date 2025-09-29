@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ja">
+ 
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>呼び出し一覧</title>
+<style>
+
+        body {
+
+            font-family: sans-serif;
+
+            margin: 20px;
+
+        }
+ 
+        h1 {
+
+            text-align: center;
+
+        }
+ 
+        .controls {
+
+            text-align: center;
+
+            margin-bottom: 20px;
+
+        }
+ 
+        #resetButton {
+
+            padding: 10px 20px;
+
+            font-size: 1em;
+
+            cursor: pointer;
+
+            background-color: #f44336;
+
+            color: white;
+
+            border: none;
+
+            border-radius: 5px;
+
+        }
+ 
+        ul {
+
+            list-style-type: none;
+
+            padding: 0;
+
+        }
+ 
+        li {
+
+            display: flex;
+
+            align-items: center;
+
+            padding: 15px;
+
+            border-bottom: 1px solid #ccc;
+
+            font-size: 1.5em;
+
+        }
+ 
+        li.resolved {
+
+            color: #888;
+
+            text-decoration: line-through;
+
+        }
+ 
+        input[type="checkbox"] {
+
+            width: 25px;
+
+            height: 25px;
+
+            margin-right: 20px;
+
+            cursor: pointer;
+
+        }
+ 
+        /* --- ▼ここから追加 (音声有効化ボタンのスタイル)▼ --- */
+
+        #sound-permission-overlay {
+
+            position: fixed;
+
+            top: 0;
+
+            left: 0;
+
+            width: 100%;
+
+            height: 100%;
+
+            background-color: rgba(0, 0, 0, 0.7);
+
+            display: flex;
+
+            justify-content: center;
+
+            align-items: center;
+
+            z-index: 1000;
+
+            color: white;
+
+            flex-direction: column;
+
+        }
+ 
+        #enableSoundButton {
+
+            padding: 20px 40px;
+
+            font-size: 1.5em;
+
+            cursor: pointer;
+
+            border-radius: 10px;
+
+            border: none;
+
+        }
+
+        /* --- ▲ここまで追加▲ --- */
+ 
+    </style>
+</head>
+ 
+<body>
+ 
+    <!-- --- ▼ここから追加 (音声有効化ボタンのHTML)▼ --- -->
+<div id="sound-permission-overlay">
+<p>新しい呼び出しを音で通知します</p>
+<button id="enableSoundButton">通知音を有効にする</button>
+</div>
+<!-- --- ▲ここまで追加▲ --- -->
+ 
+ 
+    <h1>呼び出し一覧</h1>
+ 
+    <ul id="callList">
+<!-- 呼び出された番号がここに表示されます -->
+</ul>
+ 
+    <div class="controls">
+<button id="resetButton">全件リセット</button>
+</div>
+ 
+    <!-- Firebase SDKの読み込み -->
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+ 
+    <script>
+
+        const firebaseConfig = {
+
+            apiKey: "AIzaSyBuBgdXp-C8iOZyEgLxO-t3WDCs4MsF1rk",
+
+            authDomain: "call-ta-63e8b.firebaseapp.com",
+
+            databaseURL: "https://call-ta-63e8b-default-rtdb.firebaseio.com",
+
+            projectId: "call-ta-63e8b",
+
+            storageBucket: "call-ta-63e8b.firebasestorage.app",
+
+            messagingSenderId: "561072412687",
+
+            appId: "1:561072412687:web:fed1ef08ee7d69abd02b7a",
+
+            measurementId: "G-V37518KVFF"
+
+        };
+ 
+        firebase.initializeApp(firebaseConfig);
+
+        const database = firebase.database();
+
+        const callListEl = document.getElementById('callList');
+ 
+        // --- ▼ここから大幅に変更 (音声再生関連)▼ ---
+ 
+        // 音声ファイルを準備
+
+        const notificationSound = new Audio('chime.mp3'); 
+
+        notificationSound.muted = true; // 最初はミュートしておく
+ 
+        const enableSoundButton = document.getElementById('enableSoundButton');
+
+        const soundPermissionOverlay = document.getElementById('sound-permission-overlay');
+ 
+        // 「通知音を有効にする」ボタンがクリックされた時の処理
+
+        enableSoundButton.addEventListener('click', () => {
+
+            notificationSound.muted = false; // ミュートを解除
+
+            // ユーザー操作をきっかけに一度再生を試みる（無音でもOK）
+
+            notificationSound.play().then(() => {
+
+                // 再生が成功したら、このオーバーレイは不要なので消す
+
+                soundPermissionOverlay.style.display = 'none';
+
+                // 再生をすぐに止める（音を鳴らしたくない場合）
+
+                notificationSound.pause();
+
+                notificationSound.currentTime = 0;
+ 
+            }).catch(error => {
+
+                // 万が一、ユーザー操作があっても再生に失敗した場合
+
+                alert('音声の有効化に失敗しました。ブラウザの設定で音声がブロックされている可能性があります。');
+
+                console.error(error);
+
+            });
+
+        });
+ 
+        const pageLoadTime = Date.now();
+ 
+        // 'calls'に新しいデータが追加されたのを監視するリスナー
+
+        database.ref('calls').on('child_added', (snapshot) => {
+
+            const data = snapshot.val();
+
+            // ページ読み込み後に追加された未解決のデータの場合
+
+            if (data.timestamp > pageLoadTime && !data.resolved) {
+
+                // ボタンがクリックされていれば、ここで再生が成功する
+
+                notificationSound.play().catch(error => {
+
+                    console.log('音声の自動再生に失敗しました。', error);
+
+                });
+
+            }
+
+        });
+ 
+        // --- ▲ここまで大幅に変更▲ ---
+ 
+ 
+        // 画面表示を更新するためのリスナー (ここは変更なし)
+
+        const callsRef = database.ref('calls').orderByChild('timestamp');
+
+        callsRef.on('value', (snapshot) => {
+
+            callListEl.innerHTML = '';
+ 
+            snapshot.forEach((childSnapshot) => {
+
+                const key = childSnapshot.key;
+
+                const data = childSnapshot.val();
+
+                const li = document.createElement('li');
+
+                const checkbox = document.createElement('input');
+
+                checkbox.type = 'checkbox';
+
+                checkbox.checked = data.resolved;
+
+                checkbox.addEventListener('change', () => {
+
+                    database.ref('calls/' + key).update({ resolved: checkbox.checked });
+
+                });
+ 
+                const date = new Date(data.timestamp);
+
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+
+                const day = String(date.getDate()).padStart(2, '0');
+
+                const hours = String(date.getHours()).padStart(2, '0');
+
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+
+                const formattedDateTime = `${month}/${day} ${hours}:${minutes}`;
+
+                const text = document.createTextNode(`${data.number}（${formattedDateTime}）`);
+ 
+                li.appendChild(checkbox);
+
+                li.appendChild(text);
+ 
+                if (data.resolved) {
+
+                    li.classList.add('resolved');
+
+                }
+
+                callListEl.prepend(li);
+
+            });
+
+        });
+ 
+        // リセットボタンの機能 (ここは変更なし)
+
+        const resetButton = document.getElementById('resetButton');
+
+        resetButton.addEventListener('click', () => {
+
+            if (confirm('本当にすべての呼び出しをリセットしますか？この操作は元に戻せません。')) {
+
+                database.ref('calls').remove()
+
+                    .then(() => {
+
+                        console.log('すべてのデータが削除されました。');
+
+                    })
+
+                    .catch((error) => {
+
+                        console.error('データの削除中にエラーが発生しました: ', error);
+
+                        alert('エラーが発生しました。データを削除できませんでした。');
+
+                    });
+
+            }
+
+        });
+</script>
+</body>
+ 
+</html>
+ 
