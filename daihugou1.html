@@ -425,7 +425,6 @@
         // Firebaseの初期化
         // ====================================================================================
         const firebaseConfig = {
-            // あなたのFirebaseプロジェクトの設定をここに貼り付けてください
             apiKey: "AIzaSyBvSHSOVos2i4VJJHvw_Yf2c65ay6sy5gM",
             authDomain: "daihugou2025.firebaseapp.com",
             databaseURL: "https://daihugou2025-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -486,7 +485,7 @@
         }
 
         // ====================================================================================
-        // ロビーロジック (修正・整理版)
+        // ロビーロジック
         // ====================================================================================
 
         enterLobbyButton.addEventListener('click', () => {
@@ -509,9 +508,12 @@
             const roomId = Math.random().toString(36).substr(2, 6).toUpperCase();
             roomRef = db.ref('rooms/' + roomId);
             try {
+                // ★★★★★★★★★★★★★★★★★★★★
+                // ★★★ 修正点：seats: {} を追加 ★★★
+                // ★★★★★★★★★★★★★★★★★★★★
                 await roomRef.set({
                     gameState: 'waiting',
-                    seats: {},
+                    seats: {}, 
                     createdAt: firebase.database.ServerValue.TIMESTAMP
                 });
                 console.log(`ルーム ${roomId} の作成に成功しました。`);
@@ -623,28 +625,20 @@
         }
 
         async function takeSeat(seatId) {
-            // もしすでに席についていたら、その席情報を削除する
             if (mySeatId && currentRoomId) {
                 const oldSeatRef = db.ref(`rooms/${currentRoomId}/seats/${mySeatId}`);
-                await oldSeatRef.onDisconnect().cancel(); // 古い席のonDisconnectをキャンセル
+                await oldSeatRef.onDisconnect().cancel();
                 await oldSeatRef.remove();
             }
-            // 新しい席への参照を作成
             const newSeatRef = db.ref(`rooms/${currentRoomId}/seats/${seatId}`);
             try {
-                // transactionを使って、他の人と同時に席を取ろうとした場合の問題を防ぐ
                 const result = await newSeatRef.transaction(currentData => {
                     if (currentData === null) {
-                        return {
-                            id: myPlayerInfo.id,
-                            name: myPlayerInfo.name
-                        };
+                        return { id: myPlayerInfo.id, name: myPlayerInfo.name };
                     }
-                    return; // 誰かが既に座っていたら何もしない
+                    return;
                 });
-
                 if (result.committed) {
-                    // 席を取れた場合、ブラウザを閉じたら自動で席が空くように設定
                     newSeatRef.onDisconnect().remove();
                 } else {
                     alert('その席は他の人に取られました。');
@@ -666,12 +660,8 @@
             });
         });
         
-        // ブラウザを閉じる/リロードする直前に実行される処理
         window.addEventListener('beforeunload', () => {
-            // もしルームに参加していて、席についているなら、その席情報を削除する
             if (mySeatId && currentRoomId) {
-                // 注意: これは非同期処理なので、完了が保証されない場合がある。
-                // onDisconnect()がメインの安全装置。
                 db.ref(`rooms/${currentRoomId}/seats/${mySeatId}`).remove();
             }
         });
