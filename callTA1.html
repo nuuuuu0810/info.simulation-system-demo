@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>出席番号 呼び出し</title>
+    <style>
+        /* 基本的なリセット */
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
+
+        /* --- ここからが新しいレイアウトのためのスタイル --- */
+
+        /* 全体を右上に固定するためのラッパー */
+        #widget-wrapper {
+            position: fixed;
+            top: 20px; /* 上からの余白 */
+            left: 20px; /* 右からの余白 */
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        /* SVGのレイアウトを再現するコンテナ */
+        #call-container {
+            display: flex;
+            align-items: center;
+            height: 50px;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border: 2px solid #BFBFBF;
+            border-radius: 12px;
+            box-sizing: border-box; /* paddingとborderを高さに含める */
+        }
+
+        /* 「出席番号」ラベル */
+        #call-container label {
+            font-weight: bold;
+            font-size: 10px;
+            color: #333;
+            margin-right: 10px;
+            white-space: nowrap; /* テキストが改行されないようにする */
+        }
+
+        /* 番号入力欄 */
+        #attendanceNumber {
+            font-size: 16px;
+            height: 100%;
+            width: 80px;
+            padding: 0 10px;
+            border: 2px solid #042433;
+            border-radius: 5px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        /* スピナー（上下矢印）を非表示にする */
+        #attendanceNumber::-webkit-outer-spin-button,
+        #attendanceNumber::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        #attendanceNumber[type=number] {
+            -moz-appearance: textfield;
+        }
+
+
+        /* 「呼ぶ」ボタン */
+        #callButton {
+            font-size: 16px;
+            font-weight: bold;
+            height: 100%;
+            padding: 0 25px;
+            margin-left: 10px;
+            border: none;
+            border-radius: 8px;
+            background-color: #0070C0;
+            color: white;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+
+        /* ステータス表示 */
+        #status {
+            margin-top: 5px;
+            color: green;
+            font-size: 14px;
+            height: 20px; /* 高さを確保してレイアウトのガタつきを防ぐ */
+            align-self: flex-start;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 右上に配置する呼び出しウィジェット -->
+    <div id="widget-wrapper">
+        <div id="call-container">
+            <label for="attendanceNumber">出席番号：</label>
+            <input type="number" id="attendanceNumber" placeholder="番号">
+            <button id="callButton">TAを呼ぶ</button>
+        </div>
+        <p id="status"></p>
+    </div>
+
+
+    <!-- Firebase SDKの読み込み -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBuBgdXp-C8iOZyEgLxO-t3WDCs4MsF1rk",
+            authDomain: "call-ta-63e8b.firebaseapp.com",
+            databaseURL: "https://call-ta-63e8b-default-rtdb.firebaseio.com",
+            projectId: "call-ta-63e8b",
+            storageBucket: "call-ta-63e8b.firebasestorage.app",
+            messagingSenderId: "561072412687",
+            appId: "1:561072412687:web:fed1ef08ee7d69abd02b7a",
+            measurementId: "G-V37518KVFF"
+        };
+
+        // Firebaseの初期化
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // HTML要素の取得
+        const numberInput = document.getElementById('attendanceNumber');
+        const callButton = document.getElementById('callButton');
+        const statusEl = document.getElementById('status');
+
+        // 「呼び出す」ボタンがクリックされたときの処理
+        callButton.addEventListener('click', () => {
+            const number = numberInput.value;
+
+            // 入力値が空でないかチェック
+            if (!number) {
+                alert('出席番号を入力してください。');
+                return;
+            }
+
+            // データベースに保存するデータを作成
+            const callData = {
+                number: number,
+                resolved: false, // 初期状態は「未解決」
+                timestamp: firebase.database.ServerValue.TIMESTAMP // 呼び出し時刻を記録
+            };
+
+            // データベースの'calls'という場所に新しいデータを追加
+            database.ref('calls').push(callData)
+                .then(() => {
+                    // 成功した場合の処理
+                    statusEl.textContent = `TAを呼びました。`;
+                    numberInput.value = ''; // 入力欄を空にする
+                    // 3秒後にメッセージを消す
+                    setTimeout(() => {
+                        statusEl.textContent = '';
+                    }, 30000);
+                })
+                .catch((error) => {
+                    // 失敗した場合の処理
+                    console.error('データの送信に失敗しました:', error);
+                    statusEl.textContent = '再度入力してください。';
+                    // 3秒後にメッセージを消す
+                    setTimeout(() => {
+                        statusEl.textContent = '';
+                    }, 30000);
+                });
+        });
+    </script>
+</body>
+
+</html>
