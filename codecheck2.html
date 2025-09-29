@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python コードチェッカー (v6.0 - Final, Unified Engine)</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/theme/material-darker.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/addon/edit/closebrackets.js"></script>
+
+    <style>
+        :root {
+            --dark-bg: #202020;
+            --panel-bg: #2d2d2d;
+            --light-text: #E0E0E0;
+            --blue-accent: #0070C0;
+            --orange-accent: #F4800C;
+            --red-error: #E57373;
+            --yellow-warning: #fdd835;
+            --grey-border: #7F7F7F;
+            --grey-button: #757575;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Yu Gothic", YuGothic, "Hiragaino Kaku Gothic ProN", Meiryo, sans-serif;
+            margin: 0;
+            padding: 2vh;
+            box-sizing: border-box;
+        }
+        
+        .container {
+            display: flex;
+            width: 100%;
+            height: 90vh;
+            max-width: 1600px;
+            margin: auto;
+            background-color: var(--panel-bg);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .panel {
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .left-panel {
+            flex: 1;
+            border-right: 3px solid var(--grey-border);
+            display: flex;
+            flex-direction: column;
+            background-color: #202123;
+            padding: 0;
+        }
+
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .CodeMirror {
+            font-size: 16px;
+            line-height: 1.5;
+            height: 100%;
+        }
+
+        .button-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-shrink: 0;
+        }
+
+        #execute-btn,
+        #reset-btn {
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 18px;
+            font-size: 1.0rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: auto;
+        }
+
+        #execute-btn {
+            background-color: var(--blue-accent);
+        }
+
+        #reset-btn {
+            background-color: var(--grey-button);
+        }
+
+        #execute-btn:hover,
+        #reset-btn:hover {
+            opacity: 0.9;
+        }
+
+        #output-area {
+            flex-grow: 1;
+            padding: 10px;
+            font-size: 15px;
+            overflow-y: auto;
+            background-color: #202123;
+            border-radius: 4px;
+            border: 1px solid #444;
+        }
+
+        .results-container h2 {
+            margin-top: 0;
+            border-bottom: 1px solid var(--grey-border);
+            padding-bottom: 8px;
+            font-size: 1.2em;
+        }
+
+        .results-container>p {
+            font-size: 0.85em;
+            color: #ccc;
+            margin-bottom: 15px;
+        }
+
+        .error-card {
+            background-color: #3a3d41;
+            border-left: 5px solid var(--yellow-warning);
+            padding: 12px 18px;
+            margin-bottom: 12px;
+            border-radius: 4px;
+        }
+
+        .card-header {
+            font-weight: bold;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1em;
+        }
+
+        .card-icon {
+            width: 12px;
+            height: 12px;
+            background-color: var(--yellow-warning);
+            flex-shrink: 0;
+        }
+
+        .card-header-text {
+            font-family: monospace;
+            background-color: #2b2b2b;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #E0E0E0;
+        }
+
+        .error-card>div:not(:first-child) {
+            margin-top: 12px;
+        }
+
+        .error-summary {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 1em;
+        }
+
+        .error-explanation {
+            font-size: 0.9em;
+            line-height: 1.5;
+            color: #ddd;
+        }
+
+        .error-explanation code {
+            background-color: #555;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+            color: #f0f0f0;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .chat-bubble {
+            display: flex;
+            align-items: flex-start;
+            max-width: 90%;
+        }
+
+        .chat-bubble .icon {
+            width: 40px;
+            height: 40px;
+            margin-right: 10px;
+            flex-shrink: 0;
+            
+            -webkit-mask-image: url("data:image/svg+xml,%3csvg viewBox='670 200 96 96' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M734 230C734 238.837 726.837 246 718 246 709.163 246 702 238.837 702 230 702 221.163 709.163 214 718 214 726.837 214 734 221.163 734 230Z'/%3e%3cpath d='M750 282 750 266C750 263.6 748.8 261.2 746.8 259.6 742.4 256 736.8 253.6 731.2 252 727.2 250.8 722.8 250 718 250 713.6 250 709.2 250.8 704.8 252 699.2 253.6 693.6 256.4 689.2 259.6 687.2 261.2 686 263.6 686 266L686 282 750 282Z'/%3e%3c/svg%3e");
+            mask-image: url("data:image/svg+xml,%3csvg viewBox='670 200 96 96' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M734 230C734 238.837 726.837 246 718 246 709.163 246 702 238.837 702 230 702 221.163 709.163 214 718 214 726.837 214 734 221.163 734 230Z'/%3e%3cpath d='M750 282 750 266C750 263.6 748.8 261.2 746.8 259.6 742.4 256 736.8 253.6 731.2 252 727.2 250.8 722.8 250 718 250 713.6 250 709.2 250.8 704.8 252 699.2 253.6 693.6 256.4 689.2 259.6 687.2 261.2 686 263.6 686 266L686 282 750 282Z'/%3e%3c/svg%3e");
+            -webkit-mask-size: contain;
+            mask-size: contain;
+            -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+            mask-position: center;
+            background-color: white; 
+        }
+
+        .chat-bubble .message {
+            background-color: white;
+            color: black;
+            padding: 15px;
+            border-radius: 15px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .user-input-bubble {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .user-input-bubble .icon {
+            background-color: var(--orange-accent); 
+            margin-left: 10px;
+            margin-right: 0;
+        }
+
+        #chat-input-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px;
+            margin-top: 10px;
+        }
+
+        #chat-input {
+            background-color: #fff;
+            color: #000;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 8px;
+            flex-grow: 1;
+        }
+
+        #chat-submit {
+            padding: 8px 12px;
+            border: none;
+            background-color: var(--blue-accent);
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="panel left-panel">
+            <textarea id="code-editor"># コードを入力してください</textarea>
+        </div>
+        <div class="panel right-panel">
+            <div class="button-container">
+                <button id="execute-btn">実行</button>
+                <button id="reset-btn">リセット</button>
+            </div>
+            <div id="output-area">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
+            mode: 'python',
+            theme: 'material-darker',
+            lineNumbers: true,
+            indentUnit: 4,
+            autoCloseBrackets: true
+        });
+
+        const executeBtn = document.getElementById('execute-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const outputArea = document.getElementById('output-area');
+
+        executeBtn.addEventListener('click', () => checkAndRunCode(editor.getValue()));
+
+        resetBtn.addEventListener('click', () => {
+            outputArea.innerHTML = '';
+            editor.setValue('# コードを入力してください\n');
+        });
+        
+        const PYTHON_RESERVED_WORDS = ['False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield'];
+        const COMMON_FUNCTIONS = ['print', 'range', 'input', 'int', 'float', 'str', 'random'];
+
+        const errorCatalog = {
+            'MISSING_IMPORT': {
+                summary: "モジュールをインポート（import）する必要があります。",
+                explanation: "<code>random.randint()</code> のような便利な機能を使うには、コードの最初に <code>import random</code> と書くことで、その機能の部品箱（モジュール）を読み込む必要があります。"
+            },
+            'FULL_WIDTH_CHAR': {
+                summary: "全角の文字や記号が使われています。",
+                explanation: "プログラミングのコードは、すべて半角の英数字と記号で記述するのがルールです。全角スペース、全角カッコ、全角コロンなどが紛れ込んでいないか確認しましょう。"
+            },
+            'INDENT_NOT_MULTIPLE_OF_4': {
+                summary: "インデント（字下げ）のスペースの数が正しくありません。",
+                explanation: "Pythonでは、インデントは半角スペース4つを1単位とします。タブや、1〜3個などの半端な数のスペースが使われていないか確認してください。"
+            },
+            'WRONG_INDENT_AFTER_COLON': {
+                summary: "インデント（字下げ）が正しくありません。",
+                explanation: "<code>if</code>, <code>for</code>, <code>while</code> など、行の末尾がコロン「:」で終わる行の次の行は、必ずインデントを1段階深く（スペース4つ分）する必要があります。"
+            },
+            'EMPTY_BLOCK': {
+                summary: "インデントされたブロックを空にすることはできません。",
+                explanation: "<code>if</code>, <code>for</code>, <code>while</code> などのコロン「:」で終わる行の次には、必ず何らかの処理が必要です。コメント行（#で始まる行）は処理としてカウントされません。もし「何もしない」という処理を書きたい場合は、<code>pass</code> と記述してください。"
+            },
+            'SPELLING_ERROR': {
+                summary: "「{{found}}」の大文字・小文字またはスペルが間違っています。",
+                explanation: "Pythonの基本的な命令（キーワードや組み込み関数）は、すべて小文字で書くルールです。正しくは <code>{{expected}}</code> です。"
+            },
+            'MISSING_COLON': {
+                summary: "行の末尾に必要なコロン「:」がありません。",
+                explanation: "<code>if</code>, <code>elif</code>, <code>else</code>, <code>for</code>, <code>while</code> のような、次の行からコードブロックが始まる行の末尾には、必ずコロン <code>:</code> が必要です。"
+            },
+            'ASSIGN_IN_IF': {
+                summary: "条件式での比較の仕方が間違っています。",
+                explanation: "「もしAとBが等しいなら」という比較をしたいときは <code>==</code>（イコール2つ）を使います。<code>=</code>（イコール1つ）は、変数に値を代入するための記号です。"
+            },
+            'UNEXPECTED_ELIF': {
+                summary: "<code>elif</code> の位置が正しくありません。",
+                explanation: "<code>elif</code> は、同じインデント（階層）にある <code>if</code> または別の <code>elif</code> の直後に書く必要があります。単独で使ったり、関係ないコードを間に挟むことはできません。"
+            },
+            'ELSE_IF_SYNTAX': {
+                summary: "<code>else if</code> の書き方が間違っています。",
+                explanation: "Pythonでは、<code>else if</code> ではなく <code>elif</code> と書きます。"
+            },
+            'UNEXPECTED_ELSE': {
+                summary: "<code>else</code> の位置が正しくありません。",
+                explanation: "<code>else</code> は、同じインデント（階層）にある <code>if</code> または <code>elif</code> の直後に書く必要があります。<code>else</code> の前に、ペアになる <code>if</code>文があるか確認してください。"
+            },
+            'FOR_SYNTAX_IN': {
+                summary: "<code>for</code>文の書き方が間違っています。",
+                explanation: "Pythonの <code>for</code> 文には、<code>in</code> が必要です。回数を指定して繰り返す場合は <code>for i in range(5):</code> のように書きます。"
+            },
+            'PRINT_NO_QUOTES': {
+                summary: "文字列をクォートで囲む必要があります。",
+                explanation: "文字や文章（文字列）を画面に表示するには、その文字列をシングルクォート <code>' '</code> かダブルクォート <code>\" \"</code> で囲む必要があります。もし変数の値を表示したい場合は、その変数がこの行より前で定義されているか確認してください。"
+            },
+            'VAR_STARTS_WITH_NUMBER': {
+                summary: "変数名の付け方が間違っています。",
+                explanation: "変数名は、数字から始めることはできません。アルファベットかアンダースコア <code>_</code> から始める必要があります。"
+            },
+            'VAR_IS_RESERVED': {
+                summary: "予約語を変数名として使っています。",
+                explanation: "<code>{{keyword}}</code> は、Pythonが特別な意味を持つ言葉（予約語）として使っているため、変数名にすることはできません。別の名前に変更してください。"
+            },
+            'LIST_ACCESS_WITH_PARENS': {
+                summary: "リストの要素へのアクセス方法が間違っています。",
+                explanation: "リストの特定の要素を取り出すには、丸括弧 <code>()</code> ではなく、角括弧 <code>[]</code> を使います。例えば、リストの最初の要素は <code>my_list[0]</code> のように書きます。"
+            },
+            'UNMATCHED_BRACKET': {
+                summary: "カッコ `()`、`[]`、`{}` の対応が取れていません。",
+                explanation: "開きカッコを使ったら、必ず対応する閉じカッコが必要です。カッコが閉じられていないか、余分な閉じカッコがないか確認してください。"
+            },
+            'F_STRING_UNSUPPORTED': {
+                summary: "f文字列（f-string）は現在サポートされていません。",
+                explanation: "文字列の中に変数を埋め込むには、<code>.format()</code> を使ってください。<br><b>修正例:</b> <code>print(\"{}は平成です\".format(year))</code>"
+            },
+            'INVALID_OPERATOR': {
+                summary: "Pythonでは使えない記号が使われています。",
+                explanation: "他のプログラミング言語で使われる <code>{{operator}}</code> は、Pythonでは使えません。代わりにキーワード <code>{{py_equivalent}}</code> を使ってください。"
+            },
+             'INVALID_SYNTAX_NUMBERS': {
+                summary: "構文が間違っています。",
+                explanation: "数値や変数を並べて書くときは、カンマ(,)や演算子(+, - など)で区切る必要があります。"
+            },
+            'FORMAT_ARG_MISMATCH': {
+                summary: "<code>.format()</code> の引数の数が合っていません。",
+                explanation: "文章に埋め込みたい場所 <code>{}</code> の数と、<code>.format()</code> のカッコの中に入れる変数の数が一致しているか確認してください。<code>{}</code> が {{placeholder_count}}個に対し、変数は {{arg_count}}個です。"
+            },
+            'TYPE_ERROR_CONCAT': {
+                summary: "文字列と数値を <code>+</code> で直接つなぐことはできません。",
+                explanation: "数値を文字列と一緒に表示したい場合は、数値を <code>str()</code> 関数で囲んで文字列に変換するか、<code>.format()</code> を使って埋め込む必要があります。<br><b>修正例1:</b> <code>print(\"スコアは \" + str(100))</code><br><b>修正例2:</b> <code>print(\"スコアは {}\".format(100))</code>"
+            }
+        };
+
+        function stripComment(line) {
+            let in_string = null;
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (in_string) {
+                    if (char === in_string && (i === 0 || line[i - 1] !== '\\')) {
+                        in_string = null;
+                    }
+                } else {
+                    if (char === "'" || char === '"') {
+                        in_string = char;
+                    } 
+                    else if (char === '#') {
+                        return line.substring(0, i).trim();
+                    }
+                }
+            }
+            return line.trim();
+        }
+
+        function formatErrorMessage(error) {
+            const template = errorCatalog[error.type];
+            if (!template) return {
+                summary: '不明なエラー',
+                explanation: JSON.stringify(error)
+            };
+            let summary = template.summary;
+            let explanation = template.explanation;
+            if (error.context) {
+                for (const key in error.context) {
+                    const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+                    summary = summary.replace(regex, `<code>${error.context[key]}</code>`);
+                    explanation = explanation.replace(regex, `<code>${error.context[key]}</code>`);
+                }
+            }
+            return {
+                summary,
+                explanation
+            };
+        }
+
+        function checkAndRunCode(code) {
+            outputArea.innerHTML = '';
+            const lines = code.split('\n');
+            let errors = [];
+            let definedVariables = new Set(COMMON_FUNCTIONS);
+            let indentLevels = [];
+
+            if (code.match(/random\./) && !code.match(/^\s*import\s+random/m)) {
+                errors.push({ line: 1, type: 'MISSING_IMPORT' });
+            }
+            
+            let structure = { ifs: [] };
+            lines.forEach((line, index) => {
+                const lineNumber = index + 1;
+                const trimmedLine = line.trim();
+                const currentIndent = line.match(/^\s*/)[0].length;
+                indentLevels[index] = currentIndent;
+                if (trimmedLine.length === 0 || trimmedLine.startsWith('#')) return;
+
+                const codePart = stripComment(line);
+                const codeWithoutStrings = codePart.replace(/(['"]).*?\1/g, "''");
+
+                const bracketStack = [];
+                for (const char of codeWithoutStrings) {
+                    if ('({['.includes(char)) {
+                        bracketStack.push(char);
+                    } else if (')}]'.includes(char)) {
+                        if (bracketStack.length === 0 || '({['.indexOf(bracketStack.pop()) !== ')}]'.indexOf(char)) {
+                            errors.push({ line: lineNumber, type: 'UNMATCHED_BRACKET' });
+                            break;
+                        }
+                    }
+                }
+                if (bracketStack.length > 0) {
+                    errors.push({ line: lineNumber, type: 'UNMATCHED_BRACKET' });
+                }
+
+                if (/[！-～]/.test(codeWithoutStrings)) {
+                    errors.push({ line: lineNumber, type: 'FULL_WIDTH_CHAR' });
+                }
+
+                if (/f(['"]).*?\1/.test(codePart)) {
+                    errors.push({ line: lineNumber, type: 'F_STRING_UNSUPPORTED' });
+                }
+
+                if (currentIndent > 0 && currentIndent % 4 !== 0) {
+                     errors.push({ line: lineNumber, type: 'INDENT_NOT_MULTIPLE_OF_4' });
+                }
+
+                if (index > 0) {
+                    let prevLineIndex = -1;
+                    for (let i = index - 1; i >= 0; i--) {
+                        if (lines[i].trim()) { prevLineIndex = i; break; }
+                    }
+
+                    if (prevLineIndex !== -1) {
+                         const prevLineStripped = stripComment(lines[prevLineIndex]);
+                         const prevIndent = indentLevels[prevLineIndex];
+                         if (prevLineStripped.endsWith(':')) {
+                            let firstCodeLineIndex = -1;
+                            for(let j = prevLineIndex + 1; j < lines.length; j++){
+                                if(lines[j].trim()) { firstCodeLineIndex = j; break; }
+                            }
+
+                            if (index === firstCodeLineIndex && currentIndent <= prevIndent) {
+                                errors.push({ line: lineNumber, type: 'WRONG_INDENT_AFTER_COLON' });
+                            }
+                            
+                            let blockIsEmpty = true;
+                            let blockExists = false;
+                            for (let j = prevLineIndex + 1; j < lines.length; j++) {
+                                if (lines[j].trim() === '') continue;
+                                const nextIndent = lines[j].match(/^\s*/)[0].length;
+                                if (nextIndent > prevIndent) {
+                                    blockExists = true;
+                                    if(!lines[j].trim().startsWith('#')) {
+                                        blockIsEmpty = false;
+                                        break; 
+                                    }
+                                } else {
+                                    break;
+                                }
+                            }
+                            if (blockExists && blockIsEmpty) {
+                                errors.push({ line: prevLineIndex + 1, type: 'EMPTY_BLOCK' });
+                            }
+                         }
+                    }
+                }
+                
+                let match;
+                const firstWord = trimmedLine.split(/[\s(:\[=]/)[0];
+
+                const checkColon = (keyword) => {
+                    if (!codePart.endsWith(':')) errors.push({ line: lineNumber, type: 'MISSING_COLON', context: { keyword } });
+                };
+                const checkSpelling = (keyword, targetWord) => {
+                    const wordToCheck = targetWord || firstWord;
+                    if (wordToCheck && wordToCheck !== keyword && wordToCheck.toLowerCase() === keyword) {
+                        errors.push({ line: lineNumber, type: 'SPELLING_ERROR', context: { found: wordToCheck, expected: keyword } });
+                    }
+                };
+
+                if ((match = trimmedLine.match(/^(\w+)\s*=/))) definedVariables.add(match[1]);
+                if ((match = trimmedLine.match(/^for\s+(\w+)\s+in/))) definedVariables.add(match[1]);
+                
+                const ifElifStaticMatch = trimmedLine.match(/^(if|elif)[\s(]/);
+                if (ifElifStaticMatch) {
+                    const keyword = ifElifStaticMatch[1];
+                    checkSpelling(keyword);
+                    checkColon(keyword);
+
+                    const conditionPart = codePart.substring(codePart.indexOf(keyword) + keyword.length, codePart.lastIndexOf(':')).trim();
+                    if (conditionPart.match(/(?<![=<>!])=(?!=)/)) {
+                        errors.push({ line: lineNumber, type: 'ASSIGN_IN_IF' });
+                    }
+                    
+                    if (keyword === 'elif' && (structure.ifs.length === 0 || structure.ifs[structure.ifs.length - 1].indent !== currentIndent)) {
+                        errors.push({ line: lineNumber, type: 'UNEXPECTED_ELIF' });
+                    }
+                    if (keyword === 'if') {
+                        structure.ifs = structure.ifs.filter(s => s.indent < currentIndent);
+                    }
+                    if (structure.ifs.length > 0 && structure.ifs[structure.ifs.length-1].type === 'else') {
+                       errors.push({ line: lineNumber, type: 'UNEXPECTED_ELIF' });
+                    }
+                    structure.ifs.push({ line: lineNumber, indent: currentIndent, type: keyword });
+
+                } else if (trimmedLine.startsWith('else:')) {
+                    checkSpelling('else');
+                    if (structure.ifs.length === 0 || structure.ifs[structure.ifs.length - 1].indent !== currentIndent) {
+                        errors.push({ line: lineNumber, type: 'UNEXPECTED_ELSE' });
+                    }
+                    if (structure.ifs.length > 0) structure.ifs[structure.ifs.length - 1].type = 'else';
+                
+                } else if (trimmedLine.startsWith('else if')) {
+                    errors.push({ line: lineNumber, type: 'ELSE_IF_SYNTAX' });
+                
+                } else if (trimmedLine.startsWith('for ')) {
+                    checkSpelling('for');
+                    checkColon('for');
+                    if (!trimmedLine.includes(' in ')) errors.push({ line: lineNumber, type: 'FOR_SYNTAX_IN' });
+                
+                } else if (trimmedLine.startsWith('while ')) {
+                    checkSpelling('while');
+                    checkColon('while');
+                
+                } else if (codePart.toLowerCase().startsWith('print')) {
+                    checkSpelling('print');
+                    const content = codePart.match(/^print\s*\((.*)\)\s*$/i);
+                    if (content) {
+                        const argPart = content[1].trim();
+                        if (argPart) {
+                            if (/\b\d+\s+\d+\b/.test(argPart)) {
+                                errors.push({ line: lineNumber, type: 'INVALID_SYNTAX_NUMBERS' });
+                            }
+                            const firstArg = robustSplitArgs(argPart)[0] || '';
+                            if (!firstArg.startsWith("'") && !firstArg.startsWith('"') && isNaN(firstArg.split(/[+\-*/\s,()\[\]{}]+/)[0]) && !definedVariables.has(firstArg.split(/[+\-*/\s,()\[\]{}]+/)[0]) && /^[a-zA-Z_]/.test(firstArg)) {
+                               errors.push({ line: lineNumber, type: 'PRINT_NO_QUOTES' });
+                            }
+                        }
+                    }
+                
+                } else if ((match = trimmedLine.match(/^(\w+)\s*=/))) {
+                    const varName = match[1];
+                    if (!isNaN(parseInt(varName[0]))) errors.push({ line: lineNumber, type: 'VAR_STARTS_WITH_NUMBER' });
+                    if (PYTHON_RESERVED_WORDS.includes(varName)) errors.push({ line: lineNumber, type: 'VAR_IS_RESERVED', context: { keyword: varName } });
+                
+                } else if (codePart.match(/\w+\s*\(\s*.*\s*\)/) && !trimmedLine.includes('=')) {
+                    if (codePart.match(/^\w+\s*\(\s*\d+\s*\)\s*$/)) {
+                       errors.push({ line: lineNumber, type: 'LIST_ACCESS_WITH_PARENS' });
+                    }
+                }
+
+                if (codeWithoutStrings.includes('&&')) errors.push({ line: lineNumber, type: 'INVALID_OPERATOR', context: { operator: '&&', py_equivalent: 'and' } });
+                if (codeWithoutStrings.includes('||')) errors.push({ line: lineNumber, type: 'INVALID_OPERATOR', context: { operator: '||', py_equivalent: 'or' } });
+                
+                if (codePart.includes('.format(')) {
+                    const placeholderCount = (codePart.split('.format')[0].match(/\{/g) || []).length;
+                    const formatContentMatch = codePart.match(/\.format\((.*)\)/);
+                    if (formatContentMatch) {
+                        const argCount = (formatContentMatch[1].trim() === '') ? 0 : robustSplitArgs(formatContentMatch[1]).length;
+                        if (placeholderCount !== argCount) {
+                            errors.push({ line: lineNumber, type: 'FORMAT_ARG_MISMATCH', context: { placeholder_count: placeholderCount, arg_count: argCount } });
+                        }
+                    }
+                }
+                if (codePart.match(/(['"].*['"]\s*\+\s*\b[\d.]+\b)|(\b[\d.]+\b\s*\+\s*['"].*['"])/)) {
+                     errors.push({ line: lineNumber, type: 'TYPE_ERROR_CONCAT' });
+                }
+
+                COMMON_FUNCTIONS.forEach(func => {
+                    const regex = new RegExp(`\b(${func})\\b`, 'i');
+                    const match = trimmedLine.match(regex);
+                    if (match && match[1] !== func) checkSpelling(func, match[1]);
+                });
+            });
+
+            if (errors.length > 0) {
+                displayStaticErrors(errors, lines);
+            } else {
+                simulateExecution(code).catch(e => addChatBubble('error', `${e.message}`));
+            }
+        }
+
+        function displayStaticErrors(errors, lines) {
+            outputArea.innerHTML = '';
+            const container = document.createElement('div');
+            container.className = 'results-container';
+            container.innerHTML = `<h2>コードのチェック結果</h2><p>以下の間違いが見つかりました。修正してもう一度「実行」してみましょう。</p>`;
+            const uniqueErrors = [...new Map(errors.map(item => [`${item.line}-${item.type}`, item])).values()];
+            uniqueErrors.sort((a, b) => a.line - b.line);
+            const errorGroups = {};
+            uniqueErrors.forEach(err => {
+                if (!errorGroups[err.line]) errorGroups[err.line] = [];
+                errorGroups[err.line].push(err);
+            });
+            for (const lineNumber in errorGroups) {
+                const card = document.createElement('div');
+                card.className = 'error-card';
+                const header = document.createElement('div');
+                header.className = 'card-header';
+                const trimmedCode = lines[lineNumber - 1].trim();
+                header.innerHTML = `<div class="card-icon"></div> <div>${lineNumber}行目: <span class="card-header-text">${trimmedCode}</span></div>`;
+                card.appendChild(header);
+                errorGroups[lineNumber].forEach(err => {
+                    const { summary, explanation } = formatErrorMessage(err);
+                    const errorContentWrapper = document.createElement('div');
+                    errorContentWrapper.innerHTML = `<div class="error-summary">${summary}</div><div class="error-explanation">${explanation}</div>`;
+                    card.appendChild(errorContentWrapper);
+                });
+                container.appendChild(card);
+            }
+            outputArea.appendChild(container);
+        }
+
+        function robustSplitArgs(argsStr) {
+            if (argsStr.trim() === '') return [];
+            const args = []; let currentArg = '';
+            let parenDepth = 0; let bracketDepth = 0; let braceDepth = 0;
+            let inString = null;
+            for (let i = 0; i < argsStr.length; i++) {
+                const char = argsStr[i];
+                if (inString) {
+                    if (char === inString && (i === 0 || argsStr[i - 1] !== '\\')) inString = null;
+                } else {
+                    if (char === "'" || char === '"') inString = char;
+                    else if (char === '(') parenDepth++; else if (char === ')') parenDepth--;
+                    else if (char === '[') bracketDepth++; else if (char === ']') bracketDepth--;
+                    else if (char === '{') braceDepth++; else if (char === '}') braceDepth--;
+                    else if (char === ',' && parenDepth === 0 && bracketDepth === 0 && braceDepth === 0) {
+                        args.push(currentArg.trim()); currentArg = ''; continue;
+                    }
+                }
+                currentArg += char;
+            }
+            args.push(currentArg.trim());
+            return args.filter(arg => arg);
+        }
+        
+        const baseContext = {
+            'int': val => { const n = parseInt(val, 10); if (isNaN(n)) throw new Error(`ValueError: invalid literal for int() with base 10: '${val}'`); return n; },
+            'float': val => { const n = parseFloat(val); if (isNaN(n)) throw new Error(`ValueError: could not convert string to float: '${val}'`); return n; },
+            'str': String,
+            'print': () => {}, 'input': () => {}, 'range': () => {} 
+        };
+
+        async function simulateExecution(code) {
+            outputArea.innerHTML = '<div class="chat-container"></div>';
+            const lines = code.split('\n');
+            const state = {
+                variables: { 'random': { randint: (a, b) => Math.floor(Math.random() * (b - a + 1)) + a } },
+                linePointer: 0,
+                blockStack: [],
+                outputBuffer: ''
+            };
+            const MAX_ITERATIONS = 500000;
+            let iterationCount = 0;
+
+            const flushOutputBuffer = () => {
+                if (state.outputBuffer) {
+                    addChatBubble('system', state.outputBuffer);
+                    state.outputBuffer = '';
+                }
+            };
+            
+            // ★★★ START: UNIFIED AND CORRECTED CONTROL FLOW LOGIC ★★★
+            while (state.linePointer < lines.length) {
+                if (++iterationCount > MAX_ITERATIONS) throw new Error("実行時エラー: 実行が長すぎるため停止しました。whileループの条件が永遠に偽にならないなど、無限ループになっている可能性があります。");
+
+                const lineIndex = state.linePointer;
+                const line = lines[lineIndex];
+                const indent = line ? line.match(/^\s*/)[0].length : 0;
+                const trimmedLine = line ? line.trim() : '';
+                
+                // --- Block Stack Management ---
+                while (state.blockStack.length > 0) {
+                    const top = state.blockStack[state.blockStack.length - 1];
+                    if (lineIndex >= top.endLine || (indent < top.indent && lineIndex !== top.line)) {
+                        state.blockStack.pop();
+                    } else {
+                        break;
+                    }
+                }
+                
+                if (trimmedLine.length === 0 || trimmedLine.startsWith('#')) {
+                    state.linePointer++;
+                    continue;
+                }
+
+                // --- Execution Skip Logic ---
+                const currentBlock = state.blockStack.length > 0 ? state.blockStack[state.blockStack.length - 1] : null;
+                if (currentBlock && !currentBlock.execute) {
+                    state.linePointer++;
+                    continue;
+                }
+                
+                // --- Line Execution ---
+                let pointerAdvanced = false;
+                const lineWithoutComment = stripComment(line);
+                let match;
+
+                if ((match = trimmedLine.match(/^(if|elif)/)) && trimmedLine.endsWith(':')) {
+                    const keyword = match[1];
+                    const condition = lineWithoutComment.substring(keyword.length, lineWithoutComment.lastIndexOf(':')).trim();
+                    let execute = false;
+                    const prevBlock = [...state.blockStack].reverse().find(b => b.indent === indent && (b.type === 'if' || b.type === 'elif'));
+                    
+                    if (keyword === 'if' || (prevBlock && !prevBlock.chainSuccess)) {
+                        execute = evaluateExpression(condition, state);
+                    }
+                    
+                    const chainSuccess = (prevBlock ? prevBlock.chainSuccess : false) || execute;
+                    state.blockStack.push({ type: keyword, line: lineIndex, indent: indent, execute: execute, chainSuccess: chainSuccess, endLine: findBlockEnd(lines, lineIndex) });
+                } else if (trimmedLine.startsWith('else:') && trimmedLine.endsWith(':')) {
+                    const prevBlock = [...state.blockStack].reverse().find(b => b.indent === indent && (b.type === 'if' || b.type === 'elif'));
+                    const execute = prevBlock && !prevBlock.chainSuccess;
+                    state.blockStack.push({ type: 'else', line: lineIndex, indent: indent, execute: execute, endLine: findBlockEnd(lines, lineIndex) });
+                } else if ((match = trimmedLine.match(/^while/)) && trimmedLine.endsWith(':')) {
+                    const condition = lineWithoutComment.substring(5, lineWithoutComment.lastIndexOf(':')).trim();
+                    const endLine = findBlockEnd(lines, lineIndex);
+                    if (evaluateExpression(condition, state)) {
+                        state.blockStack.push({ type: 'while', line: lineIndex, indent, execute: true, endLine: endLine });
+                    } else {
+                        state.linePointer = endLine;
+                        pointerAdvanced = true;
+                    }
+                } else if ((match = trimmedLine.match(/^for\s+(\w+)\s+in\s+range\((.*)\):/))) {
+                    const loopVar = match[1];
+                    let loopBlock = state.blockStack.find(b => b.type === 'for' && b.line === lineIndex);
+
+                    if (!loopBlock) { // First time hitting this loop
+                        const rangeArgsStr = stripComment(match[2]);
+                        const rangeArgs = robustSplitArgs(rangeArgsStr).map(a => evaluateExpression(a, state));
+                        let [start, end, step] = [0, 0, 1];
+                        if (rangeArgs.length === 1) { [end] = rangeArgs; }
+                        else if (rangeArgs.length === 2) { [start, end] = rangeArgs; }
+                        else { [start, end, step] = rangeArgs; }
+                        loopBlock = { type: 'for', line: lineIndex, indent, execute: true, endLine: findBlockEnd(lines, lineIndex), loopVar, loopState: { current: start, end, step } };
+                        state.blockStack.push(loopBlock);
+                    } else { // Subsequent iteration (after jump-back)
+                        loopBlock.loopState.current += loopBlock.loopState.step;
+                    }
+                    
+                    const { current, end: loopEnd, step: loopStep } = loopBlock.loopState;
+                    if ((loopStep > 0 && current < loopEnd) || (loopStep < 0 && current > loopEnd)) {
+                        state.variables[loopVar] = current;
+                    } else { // Loop terminates
+                        state.linePointer = loopBlock.endLine;
+                        pointerAdvanced = true;
+                    }
+                } else if (lineWithoutComment.toLowerCase().startsWith('print')) {
+                     const contentMatch = lineWithoutComment.match(/^print\s*\((.*)\)\s*$/i);
+                    if (contentMatch) {
+                        const { args, end } = parsePrintArgs(contentMatch[1] || '', state);
+                        const evaluatedArgs = args.map(arg => evaluateExpression(arg, state));
+                        const outputStr = evaluatedArgs.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+                        state.outputBuffer += outputStr + (end !== null ? end : '\n');
+                        if (state.outputBuffer.includes('\n')) {
+                             const parts = state.outputBuffer.split('\n');
+                             for (let i = 0; i < parts.length - 1; i++) {
+                                 if (parts[i] || parts.length > 1) addChatBubble('system', parts[i]);
+                             }
+                             state.outputBuffer = parts[parts.length - 1];
+                        }
+                    }
+                } else if (lineWithoutComment.includes('input(')) {
+                    flushOutputBuffer();
+                    const varName = lineWithoutComment.split('=')[0].trim();
+                    const promptMatch = lineWithoutComment.match(/input\((.*)\)/);
+                    const prompt = promptMatch && promptMatch[1] ? evaluateExpression(promptMatch[1], state) : '';
+                    let userInput = await handleInput(prompt);
+                    const rightSide = lineWithoutComment.split('=').slice(1).join('=');
+                    state.variables[varName] = evaluateExpression(rightSide.replace(/input\(.*\)/, `'${userInput.replace(/'/g, "\\'")}'`), state);
+                } else if (lineWithoutComment.includes('=')) {
+                    const parts = lineWithoutComment.split('=').map(p => p.trim());
+                    if (parts.length > 1) {
+                        const target = parts[0];
+                        const value = evaluateExpression(parts.slice(1).join('='), state);
+                        if ((match = target.match(/^(\w+)\[(.*)\]$/))) {
+                            const listName = match[1]; const index = evaluateExpression(match[2], state);
+                            if (!Array.isArray(state.variables[listName])) throw new Error(`実行時エラー (TypeError): '${listName}' はリストではありません。`);
+                            if (index < 0 || index >= state.variables[listName].length) throw new Error(`実行時エラー (IndexError): リストの範囲を超えて代入しようとしました。`);
+                            state.variables[listName][index] = value;
+                        } else {
+                            state.variables[target] = value;
+                        }
+                    }
+                }
+                
+                // --- Pointer Advancement and Loop Jump-Back ---
+                if (!pointerAdvanced) {
+                    let nextLine = lineIndex + 1;
+                    const topOfStack = state.blockStack.length > 0 ? state.blockStack[state.blockStack.length - 1] : null;
+
+                    if (topOfStack && (topOfStack.type === 'for' || topOfStack.type === 'while')) {
+                        if (nextLine === topOfStack.endLine) {
+                            nextLine = topOfStack.line; // Jump back to the loop's header
+                        }
+                    }
+                    state.linePointer = nextLine;
+                }
+            }
+            // ★★★ END: UNIFIED AND CORRECTED CONTROL FLOW LOGIC ★★★
+            flushOutputBuffer();
+        }
+
+        function findBlockEnd(lines, startLineIndex) {
+            const startIndent = lines[startLineIndex].match(/^\s*/)[0].length;
+            for (let i = startLineIndex + 1; i < lines.length; i++) {
+                if (lines[i] && (lines[i].trim() === '' || lines[i].trim().startsWith('#'))) continue;
+                if (lines[i] && lines[i].match(/^\s*/)[0].length <= startIndent) return i;
+            }
+            return lines.length;
+        }
+
+        function evaluateExpression(expr, state) {
+            expr = expr.trim();
+            if (expr === '') return undefined;
+
+            if (/\b\d+\s+\d+\b/.test(expr.replace(/(['"]).*?\1/g, ''))) {
+                throw new Error(`構文エラー (SyntaxError): 数値や変数を並べて書くときは、カンマ(,)や演算子(+, - など)で区切る必要があります。`);
+            }
+            
+            let match;
+            if ((match = expr.match(/^(\w+)\[(.*)\]$/))) {
+                const listName = match[1]; const index = evaluateExpression(match[2], state);
+                const list = (state.variables)[listName];
+                if (!(listName in state.variables)) throw new Error(`実行時エラー (NameError): 変数 '${listName}' が定義されていません。`);
+                if (!Array.isArray(list)) throw new Error(`実行時エラー (TypeError): '${listName}' はリストではありません。`);
+                if (index < 0 || index >= list.length) throw new Error(`実行時エラー (IndexError): リストの範囲外にアクセスしようとしました。このリストのサイズは ${list.length} ですが、${index} 番目にアクセスしようとしています。`);
+                return list[index];
+            }
+            if (expr.includes('.format(')) {
+                const parts = expr.split('.format(');
+                const template = evaluateExpression(parts[0], state);
+                if (typeof template !== 'string') throw new Error(`実行時エラー (AttributeError): '${typeof template}' 型のオブジェクトに '.format' 属性はありません。`);
+                const argsStr = parts.slice(1).join('.format(').slice(0, -1);
+                const evaluatedArgs = robustSplitArgs(argsStr).map(arg => evaluateExpression(arg, state));
+                let argIndex = 0;
+                return template.replace(/{(\d*)}/g, (match, indexStr) => {
+                    const index = indexStr === '' ? argIndex++ : parseInt(indexStr, 10);
+                    if (index >= evaluatedArgs.length) throw new Error(`実行時エラー (IndexError): .format() の引数が足りません。`);
+                    return evaluatedArgs[index];
+                });
+            }
+
+            try {
+                const sanitizedExpr = expr
+                    .replace(/\s+and\s+/g, ' && ')
+                    .replace(/\s+or\s+/g, ' || ')
+                    .replace(/\bnot\s+/g, ' ! ');
+
+                const context = { ...baseContext, ...state.variables };
+                const varNames = Object.keys(context);
+                const varValues = Object.values(context);
+
+                const funcBody = `
+                    const floorDiv = (a, b) => Math.floor(a / b);
+                    return ${sanitizedExpr.replace(/\/\//g, 'floorDiv')};
+                `;
+                
+                const func = new Function(...varNames, funcBody);
+                return func(...varValues);
+
+            } catch (e) {
+                if (e instanceof ReferenceError) {
+                    const varNameMatch = e.message.match(/(\w+)\s+is not defined/);
+                    const varName = varNameMatch ? varNameMatch[1] : '不明な変数';
+                    throw new Error(`実行時エラー (NameError): 変数 '${varName}' が使われる前に定義されていません。`);
+                }
+                if (e instanceof TypeError) {
+                     if (e.message.includes("is not a function")) throw new Error(`実行時エラー (TypeError): ${e.message.split(' ')[0]} は関数ではありません。`);
+                     throw new Error(`実行時エラー (TypeError): 型が違うため計算できません。文字列と数値を連結する場合は str() を使ってください。 (エラー詳細: ${e.message})`);
+                }
+                throw new Error(`実行時エラー: 式の評価中に不明なエラーが発生しました: ${expr} (エラー詳細: ${e.message})`);
+            }
+        }
+        
+        function parsePrintArgs(fullArgsStr, state) {
+            if (fullArgsStr.trim() === '') return { args: [], end: null };
+            let allArgs = robustSplitArgs(fullArgsStr);
+            let end = null;
+            if (allArgs.length > 0) {
+                const lastArg = allArgs[allArgs.length - 1].trim();
+                if (lastArg.startsWith('end=')) {
+                    const endValueStr = lastArg.substring(lastArg.indexOf('=') + 1).trim();
+                    try { end = evaluateExpression(endValueStr, state); allArgs.pop(); } catch (e) {}
+                }
+            }
+            return { args: allArgs, end: end };
+        }
+
+        function handleInput(prompt) {
+            return new Promise(resolve => {
+                if (prompt) addChatBubble('system', prompt);
+                const iC = document.createElement('div'); iC.id = 'chat-input-container';
+                const iE = document.createElement('input'); iE.id = 'chat-input'; iE.type = 'text'; iE.placeholder = 'ここに入力してEnter';
+                const sB = document.createElement('button'); sB.id = 'chat-submit'; sB.textContent = '送信';
+                const sA = () => {
+                    const uI = iE.value; iC.remove(); addChatBubble('user', uI); resolve(uI);
+                };
+                iE.addEventListener('keypress', e => { if (e.key === 'Enter') sA(); });
+                sB.addEventListener('click', sA);
+                iC.appendChild(iE); iC.appendChild(sB);
+                outputArea.querySelector('.chat-container').appendChild(iC);
+                iE.focus();
+            });
+        }
+
+        function addChatBubble(type, text) {
+            const cC = outputArea.querySelector('.chat-container');
+            if (!cC) return;
+            const b = document.createElement('div'); b.className = 'chat-bubble';
+            if (type === 'user') b.classList.add('user-input-bubble');
+            const i = document.createElement('div'); i.className = 'icon';
+            const m = document.createElement('div'); m.className = 'message';
+            m.textContent = text;
+            if (type === 'error') { m.style.backgroundColor = 'var(--red-error)'; m.style.color = 'white'; }
+            b.appendChild(i); b.appendChild(m);
+            cC.appendChild(b);
+            outputArea.scrollTop = outputArea.scrollHeight;
+        }
+    </script>
+
+</body>
+
+</html>
