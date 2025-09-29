@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オンライン大富豪 (CPU対戦機能付き)</title>
+    <style>
+        /* CSSは前回のコードと同じため、変更はありません */
+        body{font-family:'Helvetica Neue',Arial,sans-serif;background-color:#0a4a1b;color:white;text-align:center;padding:10px;overflow:hidden;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}.hidden{display:none!important}button{padding:12px 24px;font-size:16px;cursor:pointer;border:none;border-radius:8px;margin:5px;background-color:#f0c14b;color:#111;font-weight:bold;box-shadow:0 4px 6px rgba(0,0,0,0.2);transition:background-color .2s,transform .1s}button:hover{background-color:#e0b03b}button:active{transform:translateY(2px)}button:disabled{background-color:#aaa;color:#555;cursor:not-allowed}input[type=text]{padding:10px;font-size:16px;border-radius:5px;border:1px solid #ccc;margin:5px}h1,h2,h3{text-shadow:1px 1px 3px rgba(0,0,0,0.5)}.container{background-color:rgba(0,0,0,0.2);padding:20px;border-radius:15px;box-shadow:inset 0 0 10px rgba(0,0,0,0.5)}#lobby-container{max-width:600px}#seats-container{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin:20px 0}.seat{background-color:#073514;border:2px dashed #fff6;border-radius:10px;height:100px;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;transition:background-color .3s}.seat:hover{background-color:#0c521e}.seat.taken{background-color:#444;cursor:not-allowed}.seat-number{font-size:24px;font-weight:bold}.seat-player{font-size:14px;color:#ffdf7e}#game-board{width:95vw;height:95vh;position:relative;max-width:1200px;max-height:800px}#table-area{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:50%;height:40%;border:3px solid #f0c14b;border-radius:50%;background-color:#062f12;display:flex;justify-content:center;align-items:center}#field{display:flex;transform-style:preserve-3d}#game-info{position:absolute;top:10px;left:10px;text-align:left}.player-pod{position:absolute;width:200px;padding:10px;background:rgba(0,0,0,0.3);border-radius:10px;text-align:center}.player-pod.active-turn{box-shadow:0 0 15px 5px #f0c14b}.player-name{font-weight:bold}.player-rank{font-size:18px;color:#ffdf7e}.card-back-container{display:flex;justify-content:center;margin-top:5px}#player-pod-1{top:10%;left:50%;transform:translateX(-50%)}#player-pod-2{top:50%;right:2%;transform:translateY(-50%)}#player-pod-3{top:50%;left:2%;transform:translateY(-50%)}#my-area{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:90%;display:flex;flex-direction:column;align-items:center}#my-hand{display:flex;justify-content:center;margin-bottom:10px;padding:0 50px}#controls{display:flex;justify-content:center;align-items:center}#game-status{font-size:18px;font-weight:bold;margin:0 20px}#game-result-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background-color:rgba(0,0,0,0.8);display:flex;justify-content:center;align-items:center;flex-direction:column;z-index:100}#result-list{list-style:none;padding:0;font-size:24px}#result-list li{margin:10px 0}.card,.card-back{background-color:white;color:black;width:70px;height:98px;border-radius:6px;border:1px solid #aaa;box-shadow:2px 2px 5px rgba(0,0,0,0.3);position:relative;font-size:20px;font-weight:bold;user-select:none;transition:transform .2s,box-shadow .2s}#my-hand .card{margin-left:-40px;cursor:pointer}#my-hand .card:hover{transform:translateY(-10px) rotate(2deg)}#my-hand .card.selected{transform:translateY(-25px);box-shadow:0 15px 20px rgba(255,230,150,0.4)}#field .card{margin:-50px 0 0 -30px}#field .card:first-child{margin:0}.card::before,.card::after{position:absolute;font-size:14px;line-height:1}.card::before{top:6px;left:6px}.card::after{bottom:6px;right:6px;transform:rotate(180deg)}.card.spade,.card.club{color:black}.card.heart,.card.diamond{color:red}.card.spade::before,.card.spade::after{content:'♠'}.card.heart::before,.card.heart::after{content:'♥'}.card.diamond::before,.card.diamond::after{content:'♦'}.card.club::before,.card.club::after{content:'♣'}.card-rank{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:32px}.card.joker{background-color:#f0f0f0;background-image:linear-gradient(45deg,#f0f0f0 25%,#e0e0e0 25%,#e0e0e0 50%,#f0f0f0 50%,#f0f0f0 75%,#e0e0e0 75%,#e0e0e0 100%);background-size:20px 20px}.card.joker .card-rank{font-size:14px;letter-spacing:1px}.card-back{background-color:#b00020;background-image:repeating-linear-gradient(45deg,transparent,transparent 5px,rgba(255,255,255,0.1) 5px,rgba(255,255,255,0.1) 10px);margin-left:-60px}
+    </style>
+</head>
+<body>
+
+    <div id="lobby-container" class="container">
+        <h2>オンライン大富豪</h2>
+        <p>あなたの名前: <strong id="my-display-name"></strong></p>
+        <div>
+            <input type="text" id="room-id-input" placeholder="ルームID">
+            <button id="create-room-button">ルームを作成</button>
+            <button id="join-room-button">ルームに参加</button>
+        </div>
+        <div id="seat-selection" class="hidden">
+            <h3>席を選んでください (空席はCPUになります)</h3>
+            <div id="seats-container"></div>
+            <button id="start-game-button">ゲーム開始</button>
+            <button id="leave-room-button">ルームを抜ける</button>
+        </div>
+    </div>
+
+    <div id="game-container" class="hidden">
+        <div id="game-board">
+            <div id="game-info">
+                <div>ルームID: <span id="room-id-display"></span></div>
+                <div id="revolution-status"></div>
+            </div>
+            <div id="player-pod-1" class="player-pod hidden"></div>
+            <div id="player-pod-2" class="player-pod hidden"></div>
+            <div id="player-pod-3" class="player-pod hidden"></div>
+            <div id="table-area"><div id="field"></div></div>
+            <div id="my-area">
+                <div id="my-hand"></div>
+                <div id="controls">
+                    <button id="play-button">出す</button>
+                    <div id="game-status"></div>
+                    <button id="pass-button">パス</button>
+                </div>
+            </div>
+        </div>
+        <div id="game-result-overlay" class="hidden">
+            <h2>ゲーム結果</h2>
+            <ul id="result-list"></ul>
+            <button id="next-game-button">次のゲームへ</button>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            /*** YOUR FIREBASE CONFIG HERE ***/
+        };
+        firebase.initializeApp(firebaseConfig);
+
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        // --- DOM要素 (変更なし) ---
+        const lobbyContainer = document.getElementById('lobby-container');
+        const gameContainer = document.getElementById('game-container');
+        const myDisplayNameSpan = document.getElementById('my-display-name');
+        const createRoomButton = document.getElementById('create-room-button');
+        const joinRoomButton = document.getElementById('join-room-button');
+        const leaveRoomButton = document.getElementById('leave-room-button');
+        const roomIdInput = document.getElementById('room-id-input');
+        const seatSelection = document.getElementById('seat-selection');
+        const seatsContainer = document.getElementById('seats-container');
+        const startGameButton = document.getElementById('start-game-button');
+        const roomIdDisplay = document.getElementById('room-id-display');
+        const myHandDiv = document.getElementById('my-hand');
+        const fieldDiv = document.getElementById('field');
+        const playButton = document.getElementById('play-button');
+        const passButton = document.getElementById('pass-button');
+        const gameStatusDiv = document.getElementById('game-status');
+        const revolutionStatusDiv = document.getElementById('revolution-status');
+        const gameResultOverlay = document.getElementById('game-result-overlay');
+        const resultList = document.getElementById('result-list');
+        const nextGameButton = document.getElementById('next-game-button');
+
+        // --- グローバル変数 (変更なし) ---
+        let currentUser = null;
+        let myDisplayName = `ゲスト${Math.floor(Math.random() * 9000) + 1000}`;
+        let currentRoomId = null;
+        let mySeatId = null;
+        let roomRef = null;
+        const MAX_SEATS = 4;
+
+        // --- 認証ロジック (変更なし) ---
+        myDisplayNameSpan.textContent = myDisplayName;
+        auth.signInAnonymously().then(cred => { currentUser = cred.user; createRoomButton.disabled = false; joinRoomButton.disabled = false; }).catch(console.error);
+        createRoomButton.disabled = true;
+        joinRoomButton.disabled = true;
+        
+        // --- ロビーロジック (変更なし) ---
+        createRoomButton.addEventListener('click', async () => {
+            const roomId = Math.random().toString(36).substr(2, 6).toUpperCase();
+            await db.ref('rooms/' + roomId).set({ gameState: 'waiting', seats: {} });
+            enterRoom(roomId);
+        });
+        joinRoomButton.addEventListener('click', () => {
+            const roomId = roomIdInput.value.trim().toUpperCase();
+            if (!roomId) return;
+            db.ref('rooms/' + roomId).once('value', s => s.exists() ? enterRoom(roomId) : alert('ルームが見つかりません。'));
+        });
+        leaveRoomButton.addEventListener('click', async () => {
+            if (roomRef) roomRef.off();
+            if(mySeatId) await db.ref(`rooms/${currentRoomId}/seats/${mySeatId}`).remove();
+            currentRoomId = mySeatId = roomRef = null;
+            seatSelection.classList.add('hidden');
+            roomIdInput.parentElement.classList.remove('hidden');
+        });
+        function enterRoom(roomId) {
+            currentRoomId = roomId;
+            roomRef = db.ref('rooms/' + roomId);
+            roomIdInput.parentElement.classList.add('hidden');
+            seatSelection.classList.remove('hidden');
+            roomRef.on('value', handleRoomUpdate);
+        }
+        function renderSeats(seats) {
+            seatsContainer.innerHTML = '';
+            let playerCount = 0;
+            for (let i = 1; i <= MAX_SEATS; i++) {
+                const seat = document.createElement('div');
+                seat.className = 'seat';
+                seat.dataset.seatId = i;
+                const seatNumber = document.createElement('div');
+                seatNumber.className = 'seat-number';
+                seatNumber.textContent = `SEAT ${i}`;
+                seat.appendChild(seatNumber);
+                if (seats[i]) {
+                    playerCount++;
+                    seat.classList.add('taken');
+                    const seatPlayer = document.createElement('div');
+                    seatPlayer.className = 'seat-player';
+                    seatPlayer.textContent = seats[i].name;
+                    seat.appendChild(seatPlayer);
+                } else {
+                    seat.onclick = () => takeSeat(i);
+                }
+                seatsContainer.appendChild(seat);
+            }
+            startGameButton.disabled = playerCount < 1; // 1人でも開始できるように変更
+        }
+        async function takeSeat(seatId) {
+            if (!currentUser) return;
+            if (mySeatId) await db.ref(`rooms/${currentRoomId}/seats/${mySeatId}`).set(null);
+            const seatRef = db.ref(`rooms/${currentRoomId}/seats/${seatId}`);
+            const result = await seatRef.transaction(d => (d === null) ? { uid: currentUser.uid, name: myDisplayName } : undefined);
+            if(result.committed) {
+                mySeatId = seatId;
+                document.querySelectorAll('.seat').forEach(s => s.onclick = null);
+            } else {
+                alert('その席は他の人に取られました。');
+            }
+        }
+
+        // ====================================================================================
+        // ★★★★★【変更点】ゲーム開始ロジック (CPU追加処理) ★★★★★
+        // ====================================================================================
+        startGameButton.addEventListener('click', () => {
+            roomRef.once('value', snapshot => {
+                const roomData = snapshot.val();
+                let players = Object.entries(roomData.seats).filter(([_, p]) => p);
+                
+                // --- ▼ここから追加▼ ---
+                // 空いている席にCPUを追加
+                const filledSeatIds = players.map(([seatId, _]) => seatId);
+                for (let i = 1; i <= MAX_SEATS; i++) {
+                    if (!filledSeatIds.includes(String(i))) {
+                        const cpuId = `cpu_${i}`;
+                        const cpuPlayer = {
+                            uid: cpuId,
+                            name: `CPU ${i}`,
+                            isCpu: true // CPUフラグ
+                        };
+                        players.push([String(i), cpuPlayer]);
+                    }
+                }
+                // --- ▲ここまで追加▲ ---
+
+                if (players.length < 2) {
+                    alert('2人以上いないと開始できません。');
+                    return;
+                }
+                initializeNewGame(players);
+            });
+        });
+
+        // ====================================================================================
+        // ★★★★★【変更点】handleRoomUpdate (CPUのターン処理を追加) ★★★★★
+        // ====================================================================================
+        function handleRoomUpdate(snapshot) {
+            if (!snapshot.exists()) {
+                alert('ルームが終了しました。');
+                window.location.reload();
+                return;
+            }
+            const roomData = snapshot.val();
+            
+            if(roomData.gameState === 'waiting') {
+                lobbyContainer.classList.remove('hidden');
+                gameContainer.classList.add('hidden');
+                renderSeats(roomData.seats || {});
+            } else if (roomData.gameState === 'playing' || roomData.gameState === 'finished') {
+                lobbyContainer.classList.add('hidden');
+                gameContainer.classList.remove('hidden');
+                updateGameUI(roomData);
+
+                // --- ▼ここから追加▼ ---
+                // CPUのターンかどうかを判定し、自動でプレイさせる
+                const gameData = roomData.gameData;
+                if (gameData && roomData.gameState === 'playing') {
+                    const currentTurnSeatId = gameData.currentTurnSeatId;
+                    const currentPlayer = gameData.playerInfo[currentTurnSeatId];
+                    if (currentPlayer && currentPlayer.isCpu) {
+                        // CPUのターンなら少し待ってからプレイ
+                        setTimeout(() => cpuPlay(gameData, currentTurnSeatId), 1500);
+                    }
+                }
+                // --- ▲ここまで追加▲ ---
+            }
+        }
+
+        // ====================================================================================
+        // ゲームロジック (ほぼ変更なし)
+        // ====================================================================================
+        function initializeNewGame(players) {
+            const deck = createDeck();
+            const hands = dealCards(deck, players.length);
+            const playerHands = {};
+            const playerInfo = {};
+            const sortedPlayers = players.sort((a, b) => a[0] - b[0]);
+            
+            sortedPlayers.forEach(([seatId, player], index) => {
+                playerHands[player.uid] = hands[index];
+                playerInfo[seatId] = { ...player, cardCount: hands[index].length };
+            });
+
+            const firstPlayerSeatId = sortedPlayers[0][0];
+            const newGameData = {
+                hands: playerHands, playerInfo, field: [], lastPlay: null,
+                currentTurnSeatId: firstPlayerSeatId, passCount: 0, isRevolution: false, winners: [],
+            };
+            roomRef.update({ gameState: 'playing', gameData: newGameData });
+        }
+        function createDeck() {
+            const suits = ['spade', 'heart', 'diamond', 'club'];
+            const ranks = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 1, 2];
+            let deck = suits.flatMap(suit => ranks.map(rank => ({ suit, rank })));
+            deck.push({ suit: 'joker', rank: 99 });
+            return deck.sort(() => Math.random() - 0.5);
+        }
+        function dealCards(deck, numPlayers) {
+            const hands = Array(numPlayers).fill(0).map(() => []);
+            deck.forEach((card, i) => hands[i % numPlayers].push(card));
+            hands.forEach(sortHand);
+            return hands;
+        }
+        function sortHand(hand) { if (!hand) return []; return hand.sort((a, b) => getCardStrength(a) - getCardStrength(b)); }
+        function getCardStrength(card, isRevolution = false) {
+            if (card.rank === 99) return 100;
+            let rank = card.rank;
+            if (rank <= 2) rank += 13;
+            if (isRevolution) return 15 - rank;
+            return rank;
+        }
+
+        // --- UI更新 (ほぼ変更なし) ---
+        function updateGameUI(roomData) {
+            const { gameState, gameData } = roomData;
+            if (!gameData || !mySeatId) return;
+            const myPlayerInfo = Object.values(gameData.playerInfo).find(p => p.uid === currentUser.uid);
+            if (!myPlayerInfo) return;
+            const myHand = gameData.hands[currentUser.uid];
+            const isMyTurn = gameData.currentTurnSeatId == mySeatId;
+            roomIdDisplay.textContent = currentRoomId;
+            revolutionStatusDiv.textContent = gameData.isRevolution ? '革命中！' : '';
+            renderMyHand(myHand || [], gameData.isRevolution);
+            renderField(gameData.field || [], gameData.isRevolution);
+            renderOtherPlayers(gameData.playerInfo, gameData.currentTurnSeatId);
+            playButton.disabled = !isMyTurn;
+            passButton.disabled = !isMyTurn;
+            gameStatusDiv.textContent = isMyTurn ? "あなたのターン" : "相手のターン";
+            if (gameState === 'finished') showGameResults(gameData.winners, gameData.playerInfo);
+            else gameResultOverlay.classList.add('hidden');
+        }
+        function renderMyHand(hand, isRevolution) {
+            myHandDiv.innerHTML = '';
+            sortHand(hand);
+            hand.forEach(card => {
+                const cardEl = createCardElement(card, isRevolution);
+                cardEl.addEventListener('click', () => cardEl.classList.toggle('selected'));
+                myHandDiv.appendChild(cardEl);
+            });
+        }
+        function renderField(fieldCards, isRevolution) {
+            fieldDiv.innerHTML = '';
+            fieldCards.forEach(card => fieldDiv.appendChild(createCardElement(card, isRevolution)));
+        }
+        function renderOtherPlayers(playerInfo, currentTurnSeatId) {
+            const podElements = [document.getElementById('player-pod-1'), document.getElementById('player-pod-2'), document.getElementById('player-pod-3')];
+            podElements.forEach(p => p.classList.add('hidden'));
+            const seatIds = Object.keys(playerInfo).sort();
+            const myIdx = seatIds.indexOf(String(mySeatId));
+            let podIndex = 0;
+            for (let i = 1; i < seatIds.length; i++) {
+                const pIdx = (myIdx + i) % seatIds.length;
+                const pSeatId = seatIds[pIdx];
+                const player = playerInfo[pSeatId];
+                const pod = podElements[podIndex++];
+                if(!pod) continue;
+                pod.classList.remove('hidden');
+                pod.classList.toggle('active-turn', pSeatId == currentTurnSeatId);
+                let rankText = '';
+                const winners = (roomRef.child('gameData/winners').val() || []);
+                const rankIdx = winners.findIndex(w => w.uid === player.uid);
+                if (rankIdx !== -1) rankText = `<div class="player-rank">${rankIdx + 1}位</div>`;
+                pod.innerHTML = `<div class="player-name">${player.name}</div>${rankText}<div class="card-back-container">${Array(player.cardCount).fill('<div class="card-back"></div>').join('')}</div>`;
+            }
+        }
+        function showGameResults(winners, playerInfo) {
+            gameResultOverlay.classList.remove('hidden');
+            resultList.innerHTML = '';
+            winners.forEach((winner, index) => resultList.innerHTML += `<li>${index + 1}位: ${winner.name}</li>`);
+            Object.values(playerInfo).forEach(p => { if (!winners.some(w => w.uid === p.uid)) resultList.innerHTML += `<li>(プレイ中): ${p.name}</li>`; });
+        }
+        nextGameButton.addEventListener('click', () => {
+            roomRef.once('value', snapshot => {
+                const roomData = snapshot.val();
+                let players = Object.entries(roomData.seats).filter(([_, p]) => p);
+                // 次のゲームでもCPUを維持する
+                const filledSeatIds = players.map(([seatId, _]) => seatId);
+                Object.entries(roomData.gameData.playerInfo).forEach(([seatId, player]) => {
+                    if (player.isCpu && !filledSeatIds.includes(seatId)) {
+                        players.push([seatId, player]);
+                    }
+                });
+                initializeNewGame(players);
+            });
+        });
+        function createCardElement(card) {
+            const el = document.createElement('div');
+            el.className = `card ${card.suit}`;
+            el.dataset.rank = card.rank;
+            el.dataset.suit = card.suit;
+            const rankDisplay = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K', 99: 'JOKER' };
+            el.innerHTML = `<div class="card-rank">${rankDisplay[card.rank] || card.rank}</div>`;
+            return el;
+        }
+
+        // --- プレイヤーのアクション (ほぼ変更なし) ---
+        playButton.addEventListener('click', () => {
+            const selectedElements = myHandDiv.querySelectorAll('.card.selected');
+            if (selectedElements.length === 0) return;
+            const selectedCards = Array.from(selectedElements).map(el => ({ rank: parseInt(el.dataset.rank), suit: el.dataset.suit }));
+            playCards(selectedCards, mySeatId, myDisplayName);
+        });
+        passButton.addEventListener('click', () => passTurn(mySeatId));
+
+        // ====================================================================================
+        // ★★★★★【変更点】アクションを共通関数化 ★★★★★
+        // ====================================================================================
+        function playCards(playedCards, seatId, playerName) {
+            roomRef.child('gameData').transaction(gameData => {
+                if (gameData && gameData.currentTurnSeatId == seatId) {
+                    const player = gameData.playerInfo[seatId];
+                    if (!player) return;
+                    const { isValid, reason, is8Giri, isRevolutionTrigger } = isValidPlay(playedCards, gameData.field, gameData.isRevolution);
+                    if (!isValid) {
+                        if (!player.isCpu) alert(`出せません: ${reason}`); // CPUのエラーは表示しない
+                        return;
+                    }
+                    let hand = gameData.hands[player.uid];
+                    playedCards.forEach(pc => {
+                        const index = hand.findIndex(c => c.rank === pc.rank && c.suit === pc.suit);
+                        if (index > -1) hand.splice(index, 1);
+                    });
+                    gameData.hands[player.uid] = hand;
+                    gameData.playerInfo[seatId].cardCount = hand.length;
+
+                    const seatIds = Object.keys(gameData.playerInfo).sort();
+                    let nextIdx = (seatIds.indexOf(String(seatId)) + 1) % seatIds.length;
+                    while(gameData.playerInfo[seatIds[nextIdx]].cardCount === 0) nextIdx = (nextIdx + 1) % seatIds.length;
+                    gameData.currentTurnSeatId = seatIds[nextIdx];
+
+                    gameData.lastPlay = { cards: playedCards, seatId };
+                    gameData.passCount = 0;
+                    if(is8Giri) { gameData.field = []; gameData.currentTurnSeatId = seatId; } else { gameData.field = playedCards; }
+                    if(isRevolutionTrigger) gameData.isRevolution = !gameData.isRevolution;
+                    if (hand.length === 0) {
+                        gameData.winners.push({ uid: player.uid, name: playerName });
+                        const activePlayers = Object.values(gameData.playerInfo).filter(p => p.cardCount > 0).length;
+                        if (activePlayers <= 1) roomRef.update({gameState: 'finished'});
+                    }
+                    return gameData;
+                }
+            });
+        }
+        function passTurn(seatId) {
+            roomRef.child('gameData').transaction(gameData => {
+                 if (gameData && gameData.currentTurnSeatId == seatId) {
+                    gameData.passCount++;
+                    const seatIds = Object.keys(gameData.playerInfo).sort();
+                    let nextIdx = (seatIds.indexOf(String(seatId)) + 1) % seatIds.length;
+                    while(gameData.playerInfo[seatIds[nextIdx]].cardCount === 0) nextIdx = (nextIdx + 1) % seatIds.length;
+                    gameData.currentTurnSeatId = seatIds[nextIdx];
+                    const activePlayerCount = Object.values(gameData.playerInfo).filter(p=>p.cardCount > 0).length;
+                    if (gameData.passCount >= activePlayerCount - 1) {
+                        gameData.field = [];
+                        gameData.passCount = 0;
+                        gameData.currentTurnSeatId = gameData.lastPlay.seatId;
+                    }
+                    return gameData;
+                 }
+            });
+        }
+        
+        // --- ルール判定 (変更なし) ---
+        function isValidPlay(playCards, fieldCards, isRevolution) {
+            const playType = getPlayType(playCards);
+            if (playType.type === 'invalid') return { isValid: false, reason: '無効な組み合わせです。' };
+            if (playType.type === 'single' && playCards[0].rank === 8) return { isValid: true, is8Giri: true };
+            const isRevolutionTrigger = playType.count >= 4;
+            if (!fieldCards || fieldCards.length === 0) return { isValid: true, isRevolutionTrigger };
+            const fieldType = getPlayType(fieldCards);
+            if (playType.type !== fieldType.type || playType.count !== fieldType.count) return { isValid: false, reason: '場のカードと同じ種類・枚数で出してください。' };
+            if (getCardStrength(playCards[0], isRevolution) > getCardStrength(fieldCards[0], isRevolution)) return { isValid: true, isRevolutionTrigger };
+            return { isValid: false, reason: '場のカードより強いカードを出してください。' };
+        }
+        function getPlayType(cards) {
+            if (!cards || cards.length === 0) return { type: 'invalid' };
+            const count = cards.length;
+            const isSameRank = new Set(cards.map(c => c.rank)).size === 1;
+            if (isSameRank) {
+                if (count === 1) return { type: 'single', count: 1 };
+                if (count === 2) return { type: 'pair', count: 2 };
+                if (count === 3) return { type: 'triple', count: 3 };
+                if (count >= 4) return { type: 'quads_or_more', count };
+            }
+            return { type: 'invalid' };
+        }
+
+        // ====================================================================================
+        // ★★★★★【追加】CPUの思考ロジック ★★★★★
+        // ====================================================================================
+        function cpuPlay(gameData, cpuSeatId) {
+            // 他のCPUが処理中の場合は何もしない
+            if(document.body.dataset.cpuProcessing === 'true') return;
+            document.body.dataset.cpuProcessing = 'true';
+
+            const cpuPlayer = gameData.playerInfo[cpuSeatId];
+            const cpuHand = gameData.hands[cpuPlayer.uid];
+
+            // 出せるカードの組み合わせを探す (シンプルなロジック)
+            // 1. シングル
+            // 2. ペア
+            // 3. トリプル
+            // 4. クワッド
+            let bestPlay = null;
+            for (let numCards = 1; numCards <= 4; numCards++) {
+                for(let i=0; i <= cpuHand.length - numCards; i++) {
+                    const cardsToTry = cpuHand.slice(i, i + numCards);
+                    if (getPlayType(cardsToTry).type !== 'invalid') {
+                        const { isValid } = isValidPlay(cardsToTry, gameData.field, gameData.isRevolution);
+                        if (isValid) {
+                            bestPlay = cardsToTry;
+                            break; // 見つかったらループを抜ける
+                        }
+                    }
+                }
+                if(bestPlay) break;
+            }
+
+            if (bestPlay) {
+                playCards(bestPlay, cpuSeatId, cpuPlayer.name);
+            } else {
+                passTurn(cpuSeatId);
+            }
+            
+            // 処理完了フラグをリセット
+            setTimeout(() => { document.body.dataset.cpuProcessing = 'false'; }, 500);
+        }
+
+    </script>
+</body>
+</html>
