@@ -170,6 +170,19 @@
                     }, 30000);
                 });
         });
+
+        // --- ここから追加 ---
+        // 入力欄でエンターキーが押されたときの処理を追加
+        numberInput.addEventListener('keydown', (event) => {
+            // 押されたキーがエンターキーかどうかをチェック
+            if (event.key === 'Enter') {
+                // デフォルトの動作（フォーム送信など）をキャンセル
+                event.preventDefault();
+                // 「TAを呼ぶ」ボタンのクリックイベントを発火させる
+                callButton.click();
+            }
+        });
+        // --- ここまで追加 ---
     </script>
 </body>
 
