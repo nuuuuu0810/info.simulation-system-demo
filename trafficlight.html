@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>信号機シミュレーション</title>
     <style>
+        /* コンテナを画面中央に配置 */
         body {
             display: flex;
             justify-content: center;
@@ -15,7 +16,7 @@
             font-family: 'Helvetica Neue', Arial, sans-serif;
         }
 
-        /* 全体を囲む枠 */
+        /* 全体を囲む枠のサイズを1400x800pxに固定 */
         .container {
             display: flex;
             gap: 40px; /* 左右エリアの間隔 */
@@ -23,25 +24,29 @@
             background-color: #ffffff;
             border-radius: 12px;
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            width: 1400px;
+            height: 800px;
+            box-sizing: border-box; /* paddingを含めてサイズを維持 */
         }
 
-        /* 左エリア（コードとボタン） */
+        /* 左エリアがコンテナの半分の幅を使用 */
         .left-pane {
             display: flex;
             flex-direction: column;
+            flex: 1; /* 利用可能な幅を均等に分ける */
         }
 
-        /* 右エリア（信号機） */
+        /* 右エリアがコンテナの半分の幅を使用 */
         .right-pane {
             display: flex;
             justify-content: center;
             align-items: center;
-            width: 150px; /* 右エリアの幅を固定 */
+            flex: 1; /* 利用可能な幅を均等に分ける */
         }
         
         #code-editor {
-            width: 400px;
-            height: 300px;
+            width: 100%;
+            flex-grow: 1; /* 親要素の高さに合わせて伸びる */
             border: 1px solid #ced4da;
             border-radius: 8px;
             padding: 12px;
@@ -73,34 +78,36 @@
             cursor: not-allowed;
         }
         
-        /* 信号機 */
+        /* 信号機のサイズを拡大してバランスを調整 */
         #traffic-light {
             background-color: #212529;
-            padding: 15px;
-            border-radius: 10px;
+            padding: 30px;
+            border-radius: 20px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            border: 3px solid #000;
+            gap: 20px;
+            border: 5px solid #000;
         }
+        /* ライトのサイズを拡大 */
         .light {
-            width: 80px;
-            height: 80px;
+            width: 200px;
+            height: 200px;
             border-radius: 50%;
             background-color: #495057; /* 消灯時の色 */
             transition: background-color 0.2s, box-shadow 0.2s;
         }
+        /* ライト点灯時の影も調整 */
         #red-light.on {
             background-color: #dc3545;
-            box-shadow: 0 0 25px #dc3545;
+            box-shadow: 0 0 50px #dc3545;
         }
         #yellow-light.on {
             background-color: #ffc107;
-            box-shadow: 0 0 25px #ffc107;
+            box-shadow: 0 0 50px #ffc107;
         }
         #green-light.on {
             background-color: #28a745;
-            box-shadow: 0 0 25px #28a745;
+            box-shadow: 0 0 50px #28a745;
         }
     </style>
 </head>
@@ -108,7 +115,6 @@
 
     <div class="container">
         <div class="left-pane">
-            <!-- ↓↓↓ ここのコードを更新しました ↓↓↓ -->
             <textarea id="code-editor" readonly>
 electricity = 10
 while(electricity >= 0):
