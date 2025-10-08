@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python学習 自動販売機デモ（レスポンシブ対応）</title>
+    <style>
+        /* === スケーリングの土台設定 === */
+        html {
+            overflow-x: hidden;
+        }
+
+        body {
+            width: 1600px; /* デザインの基準幅 */
+            transform-origin: top left;
+            margin: 0;
+            font-family: 'Hiragino Sans', 'ヒラギノ角ゴ ProN W6', 'メイリオ', Meiryo, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* === レイアウトコンテナ === */
+        .split-container {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .left-panel {
+            flex: 1;
+            min-width: 450px;
+        }
+        .right-panel {
+            flex: 2;
+            min-width: 600px;
+        }
+
+        /* === 操作パネルのスタイル === */
+        .control-panel {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            position: sticky;
+            top: 20px;
+        }
+        .control-panel h2 {
+            margin-top: 0;
+            font-size: 24px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            color: #007bff;
+        }
+
+        /* チャレンジ説明エリア */
+        #challenge-area {
+            background-color: #e9f5ff;
+            border-left: 5px solid #007bff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        #challenge-area h3 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+        }
+        #challenge-instructions {
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        #challenge-instructions code {
+            background-color: #d4eaff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: Consolas, 'Courier New', monospace;
+        }
+
+        #python-code {
+            width: 100%;
+            height: 120px;
+            font-family: Consolas, 'Courier New', monospace;
+            font-size: 16px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+        #run-button {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            background-color: #28a745;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background-color 0.2s;
+        }
+        #run-button:hover {
+            background-color: #218838;
+        }
+        .message-box {
+            font-weight: bold;
+            font-size: 14px;
+            margin-top: 15px;
+            display: none;
+            padding: 12px;
+            border-radius: 4px;
+        }
+        .error {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        .success {
+            color: #155724;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+
+
+        /* === 自動販売機表示エリア === */
+        #display-wrapper {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        
+        #display-wrapper svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* SVG内のインタラクティブ要素のスタイル */
+        .product-button, #coin-slot, #return-lever {
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .product-button:hover, #coin-slot:hover, #return-lever:hover {
+            opacity: 0.8;
+        }
+
+        /* 商品が出てくるアニメーション */
+        @keyframes dispense {
+            0% { transform: translateY(-50px); opacity: 0; }
+            50% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        #output-item {
+            animation: dispense 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="split-container">
+        <div class="left-panel">
+            <div class="control-panel">
+                <h2>Pythonで自動販売機を動かそう！</h2>
+                
+                <div id="challenge-area">
+                    <h3 id="challenge-title">チャレンジ 1/3</h3>
+                    <p id="challenge-instructions"></p>
+                </div>
+
+                <textarea id="python-code"></textarea>
+                <button id="run-button">実行</button>
+                <div id="message-box" class="message-box"></div>
+            </div>
+        </div>
+        <div class="right-panel">
+            <div id="display-wrapper">
+                <!-- SVG表示エリア -->
+                <svg viewBox="0 0 1171 1591" xmlns="http://www.w3.org/2000/svg">
+                    <g id="vending-machine">
+                        <!-- 本体 -->
+                        <rect x="14" y="14" width="1143" height="1563" fill="#FF0000" stroke="#A00000" stroke-width="10"/>
+                        
+                        <!-- 商品ディスプレイエリア -->
+                        <rect x="121" y="116" width="929" height="561" fill="#1a1a1a" stroke="#000" stroke-width="5"/>
+                        
+                        <!-- 商品棚 -->
+                        <g id="products">
+                            <!-- 水 -->
+                            <g id="btn-water" class="product-button" data-name="水" data-price="110">
+                                <rect x="212.5" y="296.5" width="107" height="263" fill="#61CBF4" stroke="#4aadd1" stroke-width="4"/>
+                                <text fill="#FFFFFF" font-family="Yu Gothic, sans-serif" font-weight="700" font-size="64" x="237" y="463">水</text>
+                                <rect x="212.5" y="565" width="107" height="40" fill="#FFFF00"/>
+                                <text fill="#000000" font-family="Arial, sans-serif" font-weight="bold" font-size="32" x="227.5" y="595">¥110</text>
+                            </g>
+                            <!-- お茶 -->
+                            <g id="btn-tea" class="product-button" data-name="お茶" data-price="130">
+                                <rect x="373.5" y="296.5" width="107" height="263" fill="#92D050" stroke="#71a83f" stroke-width="4"/>
+                                <text fill="#FFFFFF" font-family="Yu Gothic, sans-serif" font-weight="700" font-size="64" x="395" y="430">お</text>
+                                <text fill="#FFFFFF" font-family="Yu Gothic, sans-serif" font-weight="700" font-size="64" x="395" y="507">茶</text>
+                                <rect x="373.5" y="565" width="107" height="40" fill="#FFFF00"/>
+                                <text fill="#000000" font-family="Arial, sans-serif" font-weight="bold" font-size="32" x="388.5" y="595">¥130</text>
+                            </g>
+                            <!-- オレンジ -->
+                            <g id="btn-orange" class="product-button" data-name="オレンジ" data-price="150">
+                                <rect x="535.5" y="296.5" width="108" height="263" fill="#FFC000" stroke="#cca000" stroke-width="4"/>
+                                <text fill="#FFFFFF" font-family="Yu Gothic, sans-serif" font-weight="700" font-size="46" x="559" y="380">オ</text>
+                                <text fill="#FFFFFF" font-family="Yu Gothic, sans-serif" font-weight="700" font-size="46" x="559" y="435">レ</text>
+                                <text fill="#FFFFFF" font-family="Yu Gothic, sans-serif" font-weight="700" font-size="46" x="559" y="490">ン</text>
+                                <text fill="#FFFFFF" font-family="Yu Gothic, sans-serif" font-weight="700" font-size="46" x="559" y="545">ジ</text>
+                                <rect x="535.5" y="565" width="108" height="40" fill="#FFFF00"/>
+                                <text fill="#000000" font-family="Arial, sans-serif" font-weight="bold" font-size="32" x="551.5" y="595">¥150</text>
+                            </g>
+                            <!-- コーラ -->
+                            <g id="btn-cola" class="product-button" data-name="コーラ" data-price="150">
+                                <rect x="698.5" y="292.5" width="107" height="263" fill="#E60012" stroke="#b3000f" stroke-width="4"/>
+                                <text fill="#FFFFFF" font-family="Yu Gothic, sans-serif" font-weight="700" font-size="55" writing-mode="tb-rl" transform="translate(734, 346)">コーラ</text>
+                                <rect x="698.5" y="565" width="107" height="40" fill="#FFFF00"/>
+                                <text fill="#000000" font-family="Arial, sans-serif" font-weight="bold" font-size="32" x="713.5" y="595">¥150</text>
+                            </g>
+                            <!-- コーヒー -->
+                            <g id="btn-coffee" class="product-button" data-name="コーヒー" data-price="120">
+                                <rect x="854.5" y="305.5" width="107" height="250" fill="#3A3A3A" stroke="#262626" stroke-width="4"/>
+                                <text fill="#FFFFFF" font-family="Yu Gothic, sans-serif" font-weight="700" font-size="40" writing-mode="tb-rl" transform="translate(885.19, 326)">コーヒー</text>
+                                <rect x="854.5" y="565" width="107" height="40" fill="#FFFF00"/>
+                                <text fill="#000000" font-family="Arial, sans-serif" font-weight="bold" font-size="32" x="869.5" y="595">¥120</text>
+                            </g>
+                        </g>
+
+                        <!-- 操作パネルエリア -->
+                        <rect x="710" y="773" width="340" height="278" fill="#595959" stroke="#404040" stroke-width="5"/>
+                        <rect x="121" y="773" width="482" height="278" fill="#FFFFFF" stroke="#CCCCCC" stroke-width="5"/>
+                        
+                        <!-- 金額・スロット表示エリア -->
+                        <rect x="140" y="800" width="440" height="100" fill="#000000"/>
+                        <!-- 金額表示 (通常時) -->
+                        <text id="money-display" x="560" y="875" fill="#00FF00" font-family="'Digital-7', monospace" font-size="90" text-anchor="end">0</text>
+                        <!-- スロット用数字 (スロット実行時) -->
+                        <text id="roulette-digits" x="560" y="875" fill="#00FF00" font-family="'Digital-7', monospace" font-size="90" text-anchor="end" visibility="hidden">----</text>
+                        <!-- スロット結果 (あたり/はずれ) -->
+                        <text id="roulette-result" x="360" y="880" fill="#FF4444" font-family="Yu Gothic, sans-serif" font-weight="bold" font-size="70" text-anchor="middle" visibility="hidden">アタリ！</text>
+                        
+                        <text x="350" y="960" fill="#333" font-size="40" text-anchor="end">投入金額</text>
+                        <text x="560" y="960" fill="#333" font-size="40">円</text>
+
+                        <!-- コイン投入口とお釣りレバー -->
+                        <g id="coin-slot">
+                            <rect x="732.5" y="835.5" width="148" height="53" fill="#222"/>
+                            <text x="745" y="820" fill="white" font-size="24">お金を入れる</text>
+                        </g>
+                        <g id="return-lever">
+                            <rect x="732.5" y="941.5" width="148" height="53" fill="#222"/>
+                            <path d="M942.9 868.28 1016.68 843.13 1020.87 855.43 947.09 880.58Z" fill="#FA8606"/>
+                            <circle cx="985" cy="862" r="39.5" fill="#BFBFBF"/>
+                            <text x="765" y="975" fill="white" font-size="24">おつり</text>
+                        </g>
+                        
+                        <!-- 取り出し口 -->
+                        <rect x="121" y="1294" width="929" height="192" fill="#333333" stroke="#1a1a1a" stroke-width="5"/>
+                        <rect x="145" y="1310" width="880" height="160" fill="#1a1a1a"/>
+                        <g id="output-tray"></g> <!-- 商品がここに追加される -->
+                    </g>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === 初期設定 ===
+        const codeTextarea = document.getElementById('python-code');
+        const runButton = document.getElementById('run-button');
+        const messageBox = document.getElementById('message-box');
+        
+        const challengeTitle = document.getElementById('challenge-title');
+        const challengeInstructions = document.getElementById('challenge-instructions');
+        
+        const moneyDisplayText = document.getElementById('money-display');
+        const outputTray = document.getElementById('output-tray');
+        const rouletteDigits = document.getElementById('roulette-digits');
+        const rouletteResult = document.getElementById('roulette-result');
+
+        // 自動販売機の状態を管理する変数
+        let currentChallenge = 1;
+        let insertedMoney = 0;
+        let winningNumber = '';
+
+        const challenges = {
+            1: {
+                title: "チャレンジ 1/3: お金を入れてみよう！",
+                instructions: "自動販売機にお金を入れます。<code>money = 150</code> のように、変数にお金を入れて<code>print()</code>で表示するコードを書いてみよう。<br>ヒント: まずは150円入れてみよう！",
+                placeholder: "money = 150\nprint(money)"
+            },
+            2: {
+                title: "チャレンジ 2/3: 商品を買ってみよう！",
+                instructions: "<code>buy('商品名')</code>という命令で商品が買えます。お金が足りないと買えません (<code>if文</code>の仕組み)。<br>ヒント: <code>buy('コーラ')</code> と入力して、150円のコーラを買ってみよう！",
+                placeholder: "buy('コーラ')"
+            },
+            3: {
+                title: "チャレンジ 3/3: あたりつきスロット！",
+                instructions: "<code>slot('XXXX')</code> で4桁の数字を送信して、あたりを狙おう！<br>ヒント: <code>slot('7777')</code> のように好きな4桁の数字を入力してね。",
+                placeholder: "slot('7777')"
+            },
+            4: {
+                title: "クリア！",
+                instructions: "全てのチャレンジをクリアしました！おめでとう！<br>もう一度挑戦するには、おつりレバーを押してリセットしてください。",
+                placeholder: "# おつりレバーを押してリセット"
+            }
+        };
+
+        const products = {
+            "水": { price: 110, elementId: 'btn-water' },
+            "お茶": { price: 130, elementId: 'btn-tea' },
+            "オレンジ": { price: 150, elementId: 'btn-orange' },
+            "コーラ": { price: 150, elementId: 'btn-cola' },
+            "コーヒー": { price: 120, elementId: 'btn-coffee' }
+        };
+
+        // === 関数定義 ===
+
+        function updateChallengeUI(challengeNum) {
+            currentChallenge = challengeNum;
+            const challenge = challenges[challengeNum];
+            challengeTitle.textContent = challenge.title;
+            challengeInstructions.innerHTML = challenge.instructions;
+            codeTextarea.value = challenge.placeholder;
+            messageBox.style.display = 'none';
+        }
+
+        function showMessage(type, message) {
+            messageBox.className = `message-box ${type}`;
+            messageBox.innerHTML = message;
+            messageBox.style.display = 'block';
+        }
+        
+        function updateMoneyDisplay() {
+            moneyDisplayText.textContent = insertedMoney;
+        }
+        
+        function dispenseProduct(productName) {
+            const productElement = document.getElementById(products[productName].elementId);
+            if (!productElement) return;
+            
+            outputTray.innerHTML = ''; // 古い商品を削除
+            const clonedProduct = productElement.cloneNode(true);
+            clonedProduct.removeAttribute('id');
+            clonedProduct.removeAttribute('class');
+            clonedProduct.setAttribute('transform', 'translate(450, 1315) scale(0.6)');
+            clonedProduct.id = 'output-item';
+            outputTray.appendChild(clonedProduct);
+        }
+
+        // スロットのアニメーション (終了時に実行するコールバック関数を受け取る)
+        function animateSlot(onAnimationEnd) {
+            let rotations = 0;
+            const interval = setInterval(() => {
+                const randomDigits = Math.floor(1000 + Math.random() * 9000).toString();
+                rouletteDigits.textContent = randomDigits;
+                rotations++;
+                if (rotations > 20) {
+                    clearInterval(interval);
+                    if (onAnimationEnd) onAnimationEnd();
+                }
+            }, 50);
+        }
+
+        function resetVendingMachine() {
+            insertedMoney = 0;
+            updateMoneyDisplay();
+            outputTray.innerHTML = '';
+            
+            // 表示を通常モードに完全リセット
+            moneyDisplayText.style.visibility = 'visible';
+            rouletteDigits.style.visibility = 'hidden';
+            rouletteResult.style.visibility = 'hidden';
+            
+            winningNumber = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+            console.log(`今回のあたり番号: ${winningNumber}`);
+            updateChallengeUI(1);
+        }
+        
+        function runCode() {
+            const code = codeTextarea.value.trim();
+            messageBox.style.display = 'none';
+            
+            switch(currentChallenge) {
+                case 1: // お金を入れる
+                    const moneyMatch = code.match(/print\(\s*(\d+)\s*\)/) || code.match(/money\s*=\s*(\d+)\s*\n\s*print\(\s*money\s*\)/);
+                    if (moneyMatch && moneyMatch[1]) {
+                        const amount = parseInt(moneyMatch[1], 10);
+                        insertedMoney += amount;
+                        updateMoneyDisplay();
+                        showMessage('success', `${amount}円を投入しました！ 次のチャレンジに進みます。`);
+                        setTimeout(() => updateChallengeUI(2), 1500);
+                    } else {
+                        showMessage('error', 'コードが正しくないようです。<code>money = 金額</code> と <code>print(money)</code> の形、または <code>print(金額)</code>の形で入力してください。');
+                    }
+                    break;
+                
+                case 2: // 商品を買う
+                    const buyMatch = code.match(/buy\(\s*['"](.+?)['"]\s*\)/);
+                    if (buyMatch && buyMatch[1]) {
+                        const productName = buyMatch[1];
+                        if (products[productName]) {
+                            const price = products[productName].price;
+                            if (insertedMoney >= price) {
+                                insertedMoney -= price;
+                                updateMoneyDisplay();
+                                dispenseProduct(productName);
+                                showMessage('success', `${productName}を買いました！ お金が足りるかチェックする<code>if文</code>が裏で動いています。`);
+                                setTimeout(() => updateChallengeUI(3), 2000);
+                            } else {
+                                showMessage('error', `お金が足りません！ ${productName}は${price}円です。`);
+                            }
+                        } else {
+                            showMessage('error', `「${productName}」という商品はありません。`);
+                        }
+                    } else {
+                        showMessage('error', "<code>buy('商品名')</code> の形式で入力してください。");
+                    }
+                    break;
+
+                case 3: // スロット
+                    const slotMatch = code.match(/slot\(\s*['"](\d{4})['"]\s*\)/);
+                     if (slotMatch && slotMatch[1]) {
+                        const userNumber = slotMatch[1];
+                        
+                        moneyDisplayText.style.visibility = 'hidden';
+                        rouletteResult.style.visibility = 'hidden';
+                        rouletteDigits.style.visibility = 'visible';
+                        
+                        animateSlot(() => {
+                            rouletteDigits.textContent = winningNumber;
+                            
+                            setTimeout(() => {
+                                rouletteResult.style.visibility = 'visible';
+                                if (userNumber === winningNumber) {
+                                    rouletteResult.textContent = 'アタリ！';
+                                    rouletteResult.setAttribute('fill', '#FFFF00');
+                                    showMessage('success', 'おめでとうございます！見事あたりです！これで全クリです！');
+                                } else {
+                                    rouletteResult.textContent = 'ハズレ';
+                                    rouletteResult.setAttribute('fill', '#FF4444');
+                                    showMessage('error', '残念、ハズレです...でもチャレンジクリア！');
+                                }
+
+                                setTimeout(() => {
+                                    moneyDisplayText.style.visibility = 'visible';
+                                    rouletteDigits.style.visibility = 'hidden';
+                                    rouletteResult.style.visibility = 'hidden';
+                                    updateChallengeUI(4);
+                                }, 2500);
+
+                            }, 500);
+                        });
+
+                    } else {
+                        showMessage('error', "<code>slot('4桁の数字')</code> の形式で入力してください。");
+                    }
+                    break;
+                case 4:
+                    showMessage('success', "クリア済みです！リセットしてお楽しみください。");
+                    break;
+            }
+        }
+        
+        // === イベントリスナー ===
+        runButton.addEventListener('click', runCode);
+
+        document.querySelectorAll('.product-button').forEach(button => {
+            button.addEventListener('click', () => {
+                if(currentChallenge === 2) {
+                    codeTextarea.value = `buy('${button.dataset.name}')`;
+                }
+            });
+        });
+        
+        document.getElementById('coin-slot').addEventListener('click', () => {
+            if(currentChallenge === 1) {
+                codeTextarea.value = 'print(500)';
+            }
+        });
+        
+        document.getElementById('return-lever').addEventListener('click', () => {
+            showMessage('success', 'リセットします！');
+            setTimeout(resetVendingMachine, 1000);
+        });
+        
+        /* === 画面スケーリング処理 === */
+        function scaleViewport() {
+            const designWidth = 1600;
+            const windowWidth = window.innerWidth;
+            const scale = windowWidth / designWidth;
+            document.body.style.transform = `scale(${scale})`;
+            document.documentElement.style.height = `${document.body.scrollHeight * scale}px`;
+        }
+
+        window.addEventListener('load', () => {
+            resetVendingMachine(); // 初期化
+            scaleViewport();
+        });
+        window.addEventListener('resize', scaleViewport);
+
+    </script>
+</body>
+</html>
